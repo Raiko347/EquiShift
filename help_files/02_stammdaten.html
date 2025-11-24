@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><style>body { font-family: sans-serif; line-height: 1.6; } h1 { color: #6b14b8; } h2 { border-bottom: 1px solid #ccc; padding-bottom: 5px; }</style></head>
+<body>
+    <h1>Stammdaten der Mitglieder</h1>
+    <p>In diesem Bereich verwalten Sie alle Mitglieder Ihres Vereins. Dies ist die zentrale Datenbasis für die gesamte Planung.</p>
+    <p>Hinweis: Mit ein Click auf die Spaltenüberschriften können Sie die Werte auf.- und absteigend Sortieren</p>
+	
+    <h2>Funktionen der Button-Leisten</h2>
+    <ul>
+        <li><b>Neues Mitglied anlegen:</b> Öffnet einen Dialog zur Eingabe aller relevanten Mitgliederdaten.</li>
+        <li><b>Mitglied bearbeiten / Einschränkungen:</b> Markieren Sie ein Mitglied in der Tabelle und klicken Sie diesen Button, um dessen Daten, Kompetenzen und Einschränkungen zu ändern.</li>
+        <li><b>Mitglied löschen:</b> Entfernt ein markiertes Mitglied nach einer Sicherheitsabfrage endgültig aus der Datenbank.</li>
+        <li><b>Vorlage herunterladen:</b> Erstellt eine leere Excel-Datei mit den korrekten Spaltenüberschriften für einen einfachen Import.</li>
+        <li><b>Mitglieder importieren...:</b> Startet den Assistenten zum Importieren von Mitgliedern aus einer Excel- oder CSV-Datei.</li>
+        <li><b>Mitglieder exportieren...:</b> Speichert die komplette Mitgliederliste in einer Excel-Datei.</li>
+    </ul>
+
+    <h2>Kompetenzen & Einschränkungen</h2>
+    <p>Im "Bearbeiten"-Dialog können Sie für jedes Mitglied dessen Eignung für die definierten <b>Dienst-Typen</b> festlegen.</p>
+    <ul>
+        <li><b>Kompetenzen:</b> Haken Sie "Kompetenz" an, wenn ein Mitglied für einen Dienst besonders gut geeignet ist. Dies wird im Zuweisungs-Dialog farblich hervorgehoben.</li>
+        <li><b>Teamleiter (TL):</b> Ein Haken bei "Teamleiter" markiert eine besondere Kompetenz. Der Planungs-Algorithmus und die Statuszeile achten darauf, dass Schichten korrekt mit einem TL besetzt sind.</li>
+        <li><b>Einschränkungen:</b> Haken Sie hier Dienste an, für die ein Mitglied <u>nicht</u> eingeteilt werden darf (z.B. aus gesundheitlichen Gründen). Diese Mitglieder werden bei der Zuweisung für entsprechende Schichten ausgeblendet.</li>
+    </ul>
+</body>
+</html>

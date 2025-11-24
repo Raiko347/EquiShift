@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><style>body { font-family: sans-serif; line-height: 1.6; } h1 { color: #6b14b8; } h2 { border-bottom: 1px solid #ccc; padding-bottom: 5px; } .highlight { color: #6b14b8; font-weight: bold; }</style></head>
+<body>
+    <h1>Die Schichtplanung</h1>
+    <p>Dies ist das Herzstück der Anwendung. Hier erstellen Sie den detaillierten Dienstplan für ein ausgewähltes Event.</p>
+    
+    <h2>Der typische Arbeitsablauf</h2>
+    <ol>
+        <li>Wählen Sie oben das zu planende Event aus.</li>
+        <li>Nutzen Sie <b class="highlight">"Aufgaben aus Vorlagen..."</b> oder <b class="highlight">"Neue Schicht"</b>, um die Struktur zu erstellen.</li>
+        <li>Markieren Sie eine Schicht und nutzen Sie <b class="highlight">"Helfer zuweisen"</b>. Der Dialog zeigt Ihnen verfügbare Helfer und warnt farblich (Rot), wenn ein Helfer bereits stark ausgelastet ist oder keine Pause hat.</li>
+    </ol>
+
+    <h2>Qualitätssicherung: Dienstplan prüfen</h2>
+    <p>Mit dem Button <b class="highlight">"Dienstplan prüfen"</b> können Sie jederzeit eine Validierung des aktuellen Plans durchführen. Das System prüft auf:</p>
+    <ul>
+        <li><b>Unterbesetzung:</b> Leere oder nicht voll besetzte Schichten.</li>
+        <li><b>Regelverstöße:</b> Helfer, die trotz Einschränkung eingeteilt wurden.</li>
+        <li><b>Belastung:</b> Helfer, die ohne Pause durcharbeiten oder mehr als 2 Schichten haben.</li>
+        <li><b>Führung:</b> Schichten, denen ein qualifizierter Teamleiter fehlt.</li>
+    </ul>
+
+    <h2>Der Automatische Planungsvorschlag</h2>
+    <p>Dieser Algorithmus füllt leere Plätze intelligent auf. Er beachtet dabei strenge Fairness-Regeln:</p>
+    <ol>
+        <li><b>Ressourcen-Schonung:</b> Teamleiter werden primär für Führungsaufgaben eingesetzt und nicht als einfache Helfer "verschwendet", solange andere verfügbar sind.</li>
+        <li><b>Gesundheitsschutz:</b> Aufeinanderfolgende Schichten ohne Pause werden vermieden.</li>
+        <li><b>Lastenverteilung:</b> Es wird versucht, niemanden für mehr als 2 Schichten pro Event einzuteilen.</li>
+        <li><b>Fairness:</b> Mitglieder mit Malus-Punkten (wenig geleistete Arbeit) werden bevorzugt herangezogen.</li>
+	</ol>	
+
+	<h2>Teamleiter und Kompetenzträger</h2>
+	<ul>
+        <li>Teamleiter werden mit dem Zusatz <b>(TL)</b> gekennzeichnet.</li>
+        <li>Mitglieder mit Kompetenz werden mit dem Zusatz <b>(*)</b> gekennzeichnet.</li>
+    </ul>	
+ 
+    <h2>Der Export-Assistent</h2>
+    <p>Über <b class="highlight">"Dienstplan exportieren"</b> erstellen Sie PDF- oder Excel-Dateien.</p>
+    <p><b>Besonderheit beim PDF-Export:</b> Wenn Sie im Modul "Events verwalten" PDF-Anhänge (z.B. Hygieneverordnung) hinterlegt haben, werden diese automatisch an das Ende des Dienstplans angefügt, sodass Sie eine einzige, vollständige Datei erhalten.</p>
+</body>
+</html>

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><style>body { font-family: sans-serif; line-height: 1.6; } h1 { color: #6b14b8; } h2 { border-bottom: 1px solid #ccc; padding-bottom: 5px; } .highlight { color: #6b14b8; font-weight: bold; }</style></head>
+<body>
+    <h1>Events verwalten</h1>
+    <p>In diesem Modul legen Sie Ihre Veranstaltungen an, verwalten deren Status und fügen wichtige Dokumente hinzu.</p>
+    
+    <h2>Funktionen</h2>
+    <ul>
+        <li><b>Neues Event anlegen:</b> Öffnet einen Dialog, in dem Sie den Namen, den Zeitraum und den Status festlegen.</li>
+        <li><b>Event bearbeiten:</b> Ermöglicht die Änderung der Daten sowie das Hinzufügen von <b>Dateianhängen</b> (siehe unten).</li>
+        <li><b>Event kopieren:</b> Ein mächtiges Werkzeug, um ein Event (z.B. vom Vorjahr) zu duplizieren. Siehe Abschnitt "Events kopieren".</li>
+        <li><b>Event löschen:</b> Entfernt ein Event und alle damit verbundenen Daten endgültig.</li>
+    </ul>
+
+    <h3>Dateianhänge (PDF)</h3>
+    <p>Im Dialog "Event bearbeiten" finden Sie den Reiter <b>"Anhänge"</b>. Hier können Sie PDF-Dateien (z.B. Hygieneverordnungen, Lagepläne, Sicherheitsunterweisungen) hinterlegen.</p>
+    <p><b>Wichtig:</b> Diese Anhänge werden beim PDF-Export des Dienstplans automatisch an das Ende der Datei angefügt.</p>
+    <p style="color: red; font-weight: bold; border: 2px solid red; padding: 10px; background-color: #fff0f0;">
+        ACHTUNG: Prüfen Sie vor der Verteilung des Dienstplanes zwingend die Aktualität und Gültigkeit aller angehängten Dokumente, veraltete Dokumente können zu Haftungsrisiken führen!
+    </p>
+
+    <h3>Events kopieren</h3>
+    <p>Wenn Sie auf <b class="highlight">"Event kopieren"</b> klicken, öffnet sich ein Assistent. Das System berechnet automatisch das neue Enddatum basierend auf der Dauer des Ursprungs-Events.</p>
+    <p>Sie haben drei Kopier-Modi zur Auswahl:</p>
+    <ol>
+        <li><b>Nur Struktur:</b> Kopiert nur das Event und die definierten Aufgaben (z.B. "Bar", "Kasse").</li>
+        <li><b>Struktur & Schichten:</b> Kopiert zusätzlich die Zeiteinteilung. Das Datum der Schichten wird automatisch auf den neuen Zeitraum verschoben.</li>
+        <li><b>Komplett:</b> Kopiert alles, inklusive der Helfer. Der Status der Zuweisungen wird auf "Geplant" zurückgesetzt.</li>
+    </ol>
+    <p><i>Hinweis: Auch die Dateianhänge werden mitkopiert. Bitte prüfen Sie diese im neuen Event auf Aktualität!</i></p>
+
+    <h3>Die Event-Status</h3>
+    <ul>
+        <li><b>In Planung:</b> Standard. Volle Bearbeitung möglich.</li>
+        <li><b>Aktiv:</b> Event findet statt.</li>
+        <li><b>Abgeschlossen:</b> Event ist vorbei. Planung ist schreibgeschützt. Notwendig für die Nachbereitung.</li>
+        <li><b>Abgesagt:</b> Event findet nicht statt.</li>
+    </ul>
+</body>
+</html>
