@@ -67,6 +67,12 @@ def main():
 
     font_size = settings.get_font_size()
     app.setStyleSheet(f"""
+        /* Basis für alle Widgets */
+        QWidget {{
+            font-size: {font_size}pt;
+        }}
+        
+        /* Speziell für Menüs (wie gehabt) */
         QMenuBar {{
             font-size: {font_size}pt;
         }}
@@ -76,6 +82,18 @@ def main():
         QMenu::item {{
             font-size: {font_size}pt;
             padding: 5px 20px;
+        }}
+        
+        /* Speziell für Tabellen und deren Kopfzeilen */
+        QTableWidget {{
+            font-size: {font_size}pt;
+        }}
+        QHeaderView::section {{
+            font-size: {font_size}pt;
+            font-weight: bold; /* Optional: Überschriften fett */
+        }}
+        QTreeWidget {{
+            font-size: {font_size}pt;
         }}
     """)
 
