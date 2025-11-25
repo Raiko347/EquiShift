@@ -71,7 +71,12 @@ Ein integriertes Validierungs-Modul prüft den Dienstplan in Echtzeit auf:
 
 ## 📸 Screenshots
 
-*(Hier kannst du später Screenshots deiner Anwendung einfügen, z.B. die Matrix-Ansicht oder den Planungs-Dialog)*
+<img width="1076" height="567" alt="Schichtplanung" src="https://github.com/user-attachments/assets/5bb742a2-3e71-4804-9df6-a1392954df3d" />
+<img width="1076" height="567" alt="Grafische Übersicht" src="https://github.com/user-attachments/assets/46886cb0-28d5-4939-bfae-4fdc07e2ccba" />
+<img width="1076" height="567" alt="Auswertungen" src="https://github.com/user-attachments/assets/b0f694db-2888-4e79-b987-1ebb1f0e0a76" />
+
+
+
 
 ---
 
