@@ -11,6 +11,8 @@ from PyQt5.QtWidgets import (
     QListWidgetItem,
     QDialogButtonBox,
     QLabel,
+    QComboBox,
+    QHBoxLayout
 )
 from PyQt5.QtGui import QColor, QFont
 
@@ -23,17 +25,35 @@ class AssignHelperDialog(QDialog):
         self.db_manager = db_manager
         self.shift_id = shift_id
         self.selected_person_id = None
+        
+        # Daten zwischenspeichern für Sortierung
+        self.helpers_data = []
 
         self.setWindowTitle("Helfer zuweisen")
-        self.setMinimumSize(450, 500) # Etwas breiter für die Warnungen
+        self.setMinimumSize(450, 500)
 
         self._init_ui()
-        self._populate_list()
+        self._load_data() # Daten laden (aber noch nicht anzeigen)
+        self._update_list() # Liste anzeigen (mit Standard-Sortierung)
 
     def _init_ui(self):
         """Erstellt die Benutzeroberfläche."""
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel("Verfügbare Helfer (sortiert nach Eignung):"))
+        
+        # --- Sortier-Optionen ---
+        sort_layout = QHBoxLayout()
+        sort_layout.addWidget(QLabel("Sortieren nach:"))
+        self.sort_combo = QComboBox()
+        self.sort_combo.addItems([
+            "Eignung (Standard)", 
+            "Score (Wenigste Punkte zuerst)", 
+            "Score (Meiste Punkte zuerst)",
+            "Name (A-Z)"
+        ])
+        self.sort_combo.currentIndexChanged.connect(self._update_list)
+        sort_layout.addWidget(self.sort_combo)
+        layout.addLayout(sort_layout)
+        # ------------------------
 
         self.helper_list = QListWidget()
         layout.addWidget(self.helper_list)
@@ -54,21 +74,44 @@ class AssignHelperDialog(QDialog):
         button_box.rejected.connect(self.reject)
         layout.addWidget(button_box)
 
-    def _populate_list(self):
-        """Füllt die Liste mit verfügbaren Helfern."""
-        helpers = self.db_manager.get_available_helpers_for_shift(
+    def _load_data(self):
+        """Lädt die Rohdaten aus der DB."""
+        self.helpers_data = self.db_manager.get_available_helpers_for_shift(
             self.shift_id
         )
 
-        if not helpers:
+    def _update_list(self):
+        """Sortiert die Daten neu und füllt die Liste."""
+        self.helper_list.clear()
+
+        if not self.helpers_data:
             self.helper_list.addItem("Keine verfügbaren Helfer gefunden.")
             self.helper_list.setEnabled(False)
             return
 
-        for helper in helpers:
-            display_text = helper["display_name"]
+        sort_mode = self.sort_combo.currentIndex()
+        
+        # Sortier-Logik
+        if sort_mode == 0: # Eignung (Standard)
+            self.helpers_data.sort(key=lambda x: (
+                -x['is_team_leader'],
+                -x['has_competence'],
+                -(len(x['warnings']) == 0),
+                x['score'], # Bei gleicher Eignung: Wer hat weniger Punkte?
+                x['display_name']
+            ))
+        elif sort_mode == 1: # Score aufsteigend (Die Faulen zuerst)
+            self.helpers_data.sort(key=lambda x: (x['score'], x['display_name']))
+        elif sort_mode == 2: # Score absteigend (Die Fleißigen zuerst)
+            self.helpers_data.sort(key=lambda x: (-x['score'], x['display_name']))
+        elif sort_mode == 3: # Name A-Z
+            self.helpers_data.sort(key=lambda x: x['display_name'])
+
+        # Liste befüllen
+        for helper in self.helpers_data:
+            # Text bauen: Name [Score: X]
+            display_text = f"{helper['display_name']} [Score: {helper['score']}]"
             
-            # Warnungen anhängen
             if helper['warnings']:
                 display_text += f" ⚠️ ({helper['warnings']})"
 
@@ -83,10 +126,6 @@ class AssignHelperDialog(QDialog):
                 item.setFont(font)
             elif helper["has_competence"]:
                 item.setForeground(QColor("green"))
-            
-            # Wenn Warnungen da sind, färben wir den Text rot (oder orange),
-            # aber behalten die Info über TL/Kompetenz im Text bei.
-            # Priorität: Warnung überschreibt Farbe, damit man es sieht.
             
             if helper['warnings']:
                 item.setForeground(QColor("red"))
