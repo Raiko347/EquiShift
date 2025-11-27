@@ -30,6 +30,10 @@ class SettingsManager:
                 self.config.set("UI", "window_width", "1280")
             if not self.config.has_option("UI", "window_height"):
                 self.config.set("UI", "window_height", "800")
+            
+            # NEU: Standard-Schichtdauer
+            if not self.config.has_option("UI", "default_shift_duration"):
+                self.config.set("UI", "default_shift_duration", "2")
 
             if not self.config.has_section("PDF"):
                 self.config.add_section("PDF")
@@ -39,6 +43,8 @@ class SettingsManager:
                 self.config.set("PDF", "footer_text", "Allgemeine Informationen: ...")
             if not self.config.has_option("PDF", "logo_path"):
                 self.config.set("PDF", "logo_path", "logo.png")
+            if not self.config.has_option("PDF", "attachment_path"):
+                self.config.set("PDF", "attachment_path", "")
 
             if not self.config.has_section("Paths"):
                 self.config.add_section("Paths")
@@ -55,6 +61,7 @@ class SettingsManager:
             "start_fullscreen": "false",
             "window_width": "1280",
             "window_height": "800",
+            "default_shift_duration": "2", # NEU: Standard 2 Stunden
         }
         
         footer_text = (
@@ -68,6 +75,7 @@ class SettingsManager:
             "club_name": "Mein Verein e.V.",
             "footer_text": footer_text,
             "logo_path": "logo.png",
+            "attachment_path": "",
         }
         self.config["Paths"] = {"last_export_path": ""}
         self.save_settings()
@@ -104,6 +112,14 @@ class SettingsManager:
     def set_window_size(self, width, height):
         self.config.set("UI", "window_width", str(width))
         self.config.set("UI", "window_height", str(height))
+        
+    # NEU: Getter/Setter für Schichtdauer
+    def get_default_shift_duration(self):
+        return self.config.getint("UI", "default_shift_duration", fallback=2)
+
+    def set_default_shift_duration(self, hours):
+        self.config.set("UI", "default_shift_duration", str(hours))
+        self.save_settings()
 
     # --- PDF-Einstellungen ---
     def get_pdf_club_name(self):
@@ -123,6 +139,13 @@ class SettingsManager:
 
     def set_pdf_logo_path(self, path):
         self.config.set("PDF", "logo_path", path)
+
+    def get_pdf_attachment_path(self):
+        return self.config.get("PDF", "attachment_path", fallback="")
+
+    def set_pdf_attachment_path(self, path):
+        self.config.set("PDF", "attachment_path", path)
+        self.save_settings()
 
     def get_last_export_path(self):
         return self.config.get("Paths", "last_export_path", fallback="")

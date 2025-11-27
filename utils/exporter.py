@@ -19,11 +19,13 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 
+# GUI Imports für Fehlermeldungen
+from PyQt5.QtWidgets import QMessageBox
+
 # PyPDF Imports (für Anhänge)
 try:
     from pypdf import PdfWriter, PdfReader
 except ImportError:
-    print("WARNUNG: pypdf ist nicht installiert. PDF-Anhänge werden nicht funktionieren.")
     PdfWriter = None
 
 class Exporter:
@@ -206,7 +208,7 @@ class Exporter:
             p_left.wrapOn(canvas, doc.width * 0.7, doc.height)
             p_left.drawOn(canvas, doc.leftMargin, footer_y)
             right_style = ParagraphStyle(name='Right', parent=styles['Normal'], alignment=TA_RIGHT, fontSize=8)
-            p_right = Paragraph("EquiShift © 2025<br/>by Raiko347", right_style)
+            p_right = Paragraph("EquiShift © 2025<br/>by ByteWolf0x15B", right_style)
             p_right.wrapOn(canvas, doc.width * 0.25, doc.height)
             p_right.drawOn(canvas, doc.leftMargin + doc.width * 0.75, footer_y)
             canvas.restoreState()
@@ -218,7 +220,10 @@ class Exporter:
             return False
 
         # 4. Merging mit Anhängen (pypdf)
-        if PdfWriter is None: # pypdf nicht installiert
+        
+        # CHECK 1: Ist pypdf installiert?
+        if PdfWriter is None:
+            QMessageBox.warning(None, "Fehlende Komponente", "Die Bibliothek 'pypdf' ist nicht installiert.\nAnhänge können nicht hinzugefügt werden.\n\nBitte 'pip install pypdf' ausführen.")
             try:
                 with open(file_path, "wb") as f:
                     f.write(buffer.getvalue())
@@ -241,13 +246,15 @@ class Exporter:
                         try:
                             merger.append(att_path)
                         except Exception as e:
-                            print(f"Konnte Anhang {att_path} nicht hinzufügen: {e}")
+                            QMessageBox.warning(None, "Fehler bei Anhang", f"Konnte Anhang nicht hinzufügen:\n{att_path}\n\nFehler: {e}")
+                    else:
+                         QMessageBox.warning(None, "Anhang fehlt", f"Die Datei wurde nicht gefunden:\n{att_path}")
             
             merger.write(file_path)
             merger.close()
             return True
         except Exception as e:
-            print(f"Fehler beim Mergen: {e}")
+            QMessageBox.critical(None, "Export Fehler", f"Kritischer Fehler beim PDF-Export:\n{e}")
             return False
 
     @staticmethod
@@ -309,7 +316,7 @@ class Exporter:
             p_left.wrapOn(canvas, doc.width * 0.7, doc.height)
             p_left.drawOn(canvas, doc.leftMargin, footer_y)
             right_style = ParagraphStyle(name='Right', parent=styles['Normal'], alignment=TA_RIGHT, fontSize=8)
-            p_right = Paragraph("EquiShift © 2025<br/>by Raiko347", right_style)
+            p_right = Paragraph("EquiShift © 2025<br/>by ByteWolf0x15B", right_style)
             p_right.wrapOn(canvas, doc.width * 0.25, doc.height)
             p_right.drawOn(canvas, doc.leftMargin + doc.width * 0.75, footer_y)
             canvas.restoreState()

@@ -25,6 +25,7 @@ class PlanMatrixWidget(QWidget):
         title_label = QLabel("Grafische Übersicht")
         title_label.setStyleSheet("font-size: 16pt; font-weight: bold;")
         main_layout.addWidget(title_label)
+        
         top_bar_layout = QHBoxLayout()
         top_bar_layout.addWidget(QLabel("<b>Event für die Matrix-Übersicht auswählen:</b>"))
         self.event_combobox = QComboBox()
@@ -32,9 +33,12 @@ class PlanMatrixWidget(QWidget):
         top_bar_layout.addWidget(self.event_combobox)
         top_bar_layout.addStretch()
         main_layout.addLayout(top_bar_layout)
+        
         self.table = QTableWidget()
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table.setStyleSheet("QTableWidget::item { padding: 5px; }")
         main_layout.addWidget(self.table)
+        
         self.event_combobox.currentIndexChanged.connect(self.on_event_changed)
 
     def refresh_view(self):
@@ -42,7 +46,7 @@ class PlanMatrixWidget(QWidget):
         self.update_matrix_view()
 
     def _populate_event_combobox(self):
-        self.event_combobox.blockSignals(True) # Blockieren
+        self.event_combobox.blockSignals(True)
         
         current_id = self.event_combobox.currentData()
         self.event_combobox.clear()
@@ -57,10 +61,9 @@ class PlanMatrixWidget(QWidget):
         if index != -1:
             self.event_combobox.setCurrentIndex(index)
             
-        self.event_combobox.blockSignals(False) # Freigeben
+        self.event_combobox.blockSignals(False)
 
     def on_event_changed(self):
-        """Sendet nur noch das Signal, wenn der Benutzer eine Änderung vornimmt."""
         if not self.event_combobox.signalsBlocked():
             event_id = self.event_combobox.currentData()
             self.event_selection_changed.emit(event_id)
@@ -93,43 +96,33 @@ class PlanMatrixWidget(QWidget):
         plan_data = self.db_manager.get_plan_matrix_data(event_id)
         if not plan_data: return
 
-        # 1. Daten aufbereiten
         tasks = sorted(list(set(row['task_name'] for row in plan_data)))
         shifts = sorted(list(set((row['shift_date'], row['start_time'], row['end_time']) for row in plan_data)))
 
-        # 2. Tabellengröße und Header
-        num_tasks = len(tasks)
-        num_shifts = len(shifts)
-        self.table.setRowCount(num_tasks + 2)
-        self.table.setColumnCount(num_shifts + 1)
+        self.table.setRowCount(len(tasks))
+        self.table.setColumnCount(len(shifts))
 
-        dates = defaultdict(list)
-        for i, (date, start, end) in enumerate(shifts):
-            formatted_date = datetime.strptime(date, '%Y-%m-%d').strftime('%d.%m.%Y')
-            dates[formatted_date].append(i + 1)
-            time_item = QTableWidgetItem(f"{start} - {end}")
-            time_item.setTextAlignment(Qt.AlignCenter)
-            self.table.setItem(1, i + 1, time_item)
+        self.table.setVerticalHeaderLabels(tasks)
+        self.table.verticalHeader().setVisible(True)
+        
+        header_labels = []
+        for date, start, end in shifts:
+            formatted_date = datetime.strptime(date, '%Y-%m-%d').strftime('%d.%m.')
+            header_labels.append(f"{formatted_date}\n{start}-{end}")
+        
+        self.table.setHorizontalHeaderLabels(header_labels)
+        self.table.horizontalHeader().setVisible(True)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.table.horizontalHeader().setMinimumSectionSize(100) 
 
-        for date_str, cols in dates.items():
-            date_item = QTableWidgetItem(date_str)
-            date_item.setTextAlignment(Qt.AlignCenter)
-            self.table.setItem(0, cols[0], date_item)
-            if len(cols) > 1:
-                self.table.setSpan(0, cols[0], 1, len(cols))
-
-        for i, task_name in enumerate(tasks):
-            task_item = QTableWidgetItem(task_name)
-            self.table.setItem(i + 2, 0, task_item)
-
-        # 3. Zellen füllen und formatieren
-        light_red = QBrush(QColor(255, 220, 220))
         light_gray = QBrush(QColor("#f0f0f0"))
+        
+        # NEU: Wir merken uns, wie viele Zeilen Text die höchste Zelle pro Reihe hat
+        row_max_lines = defaultdict(int)
 
         for row_idx, task_name in enumerate(tasks):
             for col_idx, (date, start, end) in enumerate(shifts):
                 
-                # Finde alle relevanten Einträge für DIESE ZELLE
                 cell_data = [
                     row for row in plan_data 
                     if row['task_name'] == task_name and 
@@ -138,42 +131,58 @@ class PlanMatrixWidget(QWidget):
                        row['end_time'] == end
                 ]
 
-                cell_item = QTableWidgetItem("")
-                
                 if not cell_data:
-                    # Für diese Aufgabe gibt es diese Schicht nicht -> grau
+                    cell_item = QTableWidgetItem("")
                     cell_item.setBackground(light_gray)
-                    self.table.setItem(row_idx + 2, col_idx + 1, cell_item)
+                    self.table.setItem(row_idx, col_idx, cell_item)
                     continue
 
-                # Es gibt eine Schicht, also fülle die Daten
                 required = cell_data[0]['required_people']
                 helpers = [row for row in cell_data if row['helper_name'] is not None]
                 
-                helper_texts = []
+                if not helpers:
+                    cell_item = QTableWidgetItem("")
+                    if required > 0:
+                        cell_item.setBackground(QBrush(QColor(255, 220, 220)))
+                    self.table.setItem(row_idx, col_idx, cell_item)
+                    continue
+
                 sorted_helpers = sorted(helpers, key=lambda x: (x['is_team_leader'], x['has_competence'], x['helper_name']), reverse=True)
+                
+                html_lines = []
                 for h in sorted_helpers:
-                    text = h['helper_name']
-                    if h['is_team_leader']: text += " (TL)"
-                    elif h['has_competence']: text += " (*)"
-                    helper_texts.append(text)
+                    name = h['helper_name']
+                    if h['is_team_leader']:
+                        html_lines.append(f"{name} (TL)")
+                    elif h['has_competence']:
+                        html_lines.append(f"{name} (*)")
+                    else:
+                        html_lines.append(name)
                 
-                cell_item.setText("\n".join(helper_texts))
+                # NEU: Anzahl der Zeilen zählen und Maximum für diese Reihe speichern
+                row_max_lines[row_idx] = max(row_max_lines[row_idx], len(html_lines))
                 
-                # HIER WURDE DIE FETTSCHRIFT ENTFERNT
-                # if any(h['is_team_leader'] for h in helpers):
-                #    cell_item.setFont(bold_font)
-
+                label = QLabel("<br>".join(html_lines))
+                label.setAlignment(Qt.AlignCenter)
+                
                 if len(helpers) < required:
-                    cell_item.setBackground(light_red)
+                    label.setStyleSheet("QLabel { background-color: #ffdcdc; }")
+                else:
+                    label.setStyleSheet("QLabel { background-color: transparent; }")
 
-                cell_item.setTextAlignment(Qt.AlignCenter | Qt.AlignVCenter)
-                self.table.setItem(row_idx + 2, col_idx + 1, cell_item)
+                self.table.setCellWidget(row_idx, col_idx, label)
 
-        # 4. Layout anpassen
-        self.table.verticalHeader().setVisible(False)
-        self.table.horizontalHeader().setVisible(False)
-        self.table.resizeColumnsToContents()
-        self.table.resizeRowsToContents()
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        # NEU: Manuelle Höhenberechnung statt resizeRowsToContents
+        # Wir holen die Höhe einer Textzeile basierend auf der aktuellen Schriftart
+        font_metrics = self.table.fontMetrics()
+        line_height = font_metrics.lineSpacing()
+        
+        for row in range(self.table.rowCount()):
+            lines = row_max_lines[row]
+            if lines > 0:
+                # Höhe = (Anzahl Zeilen * Zeilenhöhe) + Padding (oben/unten)
+                # 20px Extra-Padding sorgen dafür, dass nichts abgeschnitten wird
+                total_height = (lines * line_height) + 20 
+                self.table.setRowHeight(row, total_height)
+            else:
+                self.table.setRowHeight(row, 40) # Standardhöhe für leere Zeilen

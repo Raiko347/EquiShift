@@ -110,16 +110,15 @@ class ShiftDetailsWidget(QWidget):
         """Öffnet den Dialog zur Auswahl eines neuen Helfers."""
         if self.current_shift_id is None:
             return
-
-        # --- ÄNDERUNG: Keine automatische Abfrage mehr ---
-        # Wir öffnen direkt den Dialog, egal ob der Plan "dirty" ist oder nicht.
-        # Der User hat geklickt, also will er manuell arbeiten.
         
         dialog = AssignHelperDialog(self.db_manager, self.current_shift_id, self)
         if dialog.exec_() == QDialog.Accepted:
-            person_id = dialog.selected_person_id
-            if person_id:
-                self.db_manager.assign_person_to_shift(person_id, self.current_shift_id)
+            # NEU: Liste verarbeiten
+            person_ids = dialog.selected_person_ids
+            if person_ids:
+                for pid in person_ids:
+                    self.db_manager.assign_person_to_shift(pid, self.current_shift_id)
+                
                 self.load_shift_data(self.current_shift_id)
                 self.data_changed.emit()
 

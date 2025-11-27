@@ -467,28 +467,42 @@ class PlanningWidget(QWidget):
         self._execute_export(export_data, event_name, file_path, export_format, attachments=attachments)
 
     def export_daily_plans(self, event_id, event_name, export_format):
-        last_path = self.settings.get_last_export_path()
-        folder_path = QFileDialog.getExistingDirectory(self, "Ordner für Tagespläne auswählen", last_path)
-        if not folder_path: return
-        self.settings.set_last_export_path(folder_path)
-        all_data = self.db_manager.get_export_data_for_event(event_id)
-        if not all_data:
-            QMessageBox.information(self, "Keine Daten", "Für dieses Event sind keine Schichten geplant.")
-            return
-        unique_dates = sorted(list(set(row['shift_date'] for row in all_data)))
-        exported_files = []
-        for date in unique_dates:
-            daily_data = [row for row in all_data if row['shift_date'] == date]
-            formatted_date = QDate.fromString(date, "yyyy-MM-dd").toString("dd_MM_yyyy")
-            file_name = f"Tagesplan_{event_name.replace(' ', '_')}_{formatted_date}.{export_format}"
-            file_path = os.path.join(folder_path, file_name)
-            daily_event_name = f"{event_name} ({QDate.fromString(date, 'yyyy-MM-dd').toString('dd.MM.yyyy')})"
-            if self._execute_export(daily_data, daily_event_name, file_path, export_format):
-                exported_files.append(file_name)
-        if exported_files:
-            QMessageBox.information(self, "Export erfolgreich", f"{len(exported_files)} Tagespläne wurden erfolgreich im Ordner\n{folder_path}\ngespeichert.")
-        else:
-            QMessageBox.critical(self, "Export fehlgeschlagen", "Es konnten keine Tagespläne exportiert werden.")
+            last_path = self.settings.get_last_export_path()
+            folder_path = QFileDialog.getExistingDirectory(self, "Ordner für Tagespläne auswählen", last_path)
+            if not folder_path: return
+            self.settings.set_last_export_path(folder_path)
+            
+            all_data = self.db_manager.get_export_data_for_event(event_id)
+            if not all_data:
+                QMessageBox.information(self, "Keine Daten", "Für dieses Event sind keine Schichten geplant.")
+                return
+                
+            # --- NEU: Anhänge einmal laden ---
+            attachments = []
+            if export_format == 'pdf':
+                att_data = self.db_manager.get_attachments_for_event(event_id)
+                attachments = [a['file_path'] for a in att_data]
+            # ---------------------------------
+
+            unique_dates = sorted(list(set(row['shift_date'] for row in all_data)))
+            exported_files = []
+            
+            for date in unique_dates:
+                daily_data = [row for row in all_data if row['shift_date'] == date]
+                formatted_date = QDate.fromString(date, "yyyy-MM-dd").toString("dd_MM_yyyy")
+                file_name = f"Tagesplan_{event_name.replace(' ', '_')}_{formatted_date}.{export_format}"
+                file_path = os.path.join(folder_path, file_name)
+                daily_event_name = f"{event_name} ({QDate.fromString(date, 'yyyy-MM-dd').toString('dd.MM.yyyy')})"
+                
+                # --- NEU: Anhänge übergeben ---
+                if self._execute_export(daily_data, daily_event_name, file_path, export_format, attachments=attachments):
+                    exported_files.append(file_name)
+                # ------------------------------
+
+            if exported_files:
+                QMessageBox.information(self, "Export erfolgreich", f"{len(exported_files)} Tagespläne wurden erfolgreich im Ordner\n{folder_path}\ngespeichert.")
+            else:
+                QMessageBox.critical(self, "Export fehlgeschlagen", "Es konnten keine Tagespläne exportiert werden.")
 
     def export_duty_plan(self, event_id, event_name, export_format, task_id):
         if task_id == -99:
@@ -497,38 +511,63 @@ class PlanningWidget(QWidget):
         if task_id is None:
             QMessageBox.warning(self, "Keine Auswahl", "Bitte wählen Sie einen Dienst aus dem Dropdown-Menü aus.")
             return
+            
         task = self.db_manager.get_task_by_id(task_id)
         task_name = task['name'] if task else "Unbekannter_Dienst"
+        
         last_path = self.settings.get_last_export_path()
         default_filename = os.path.join(last_path, f"Dienstplan_{task_name.replace(' ', '_')}")
         file_filter = "PDF-Datei (*.pdf)" if export_format == 'pdf' else "Excel-Datei (*.xlsx)"
         file_path, _ = QFileDialog.getSaveFileName(self, f"Plan für '{task_name}' exportieren", default_filename, file_filter)
         if not file_path: return
         self.settings.set_last_export_path(os.path.dirname(file_path))
+        
         export_data = self.db_manager.get_export_data_for_event(event_id, filter_task_id=task_id)
         export_title = f"{event_name} - {task_name}"
-        self._execute_export(export_data, export_title, file_path, export_format, tasks_to_show=[task_name])
+        
+        # --- NEU: Anhänge laden und übergeben ---
+        attachments = []
+        if export_format == 'pdf':
+            att_data = self.db_manager.get_attachments_for_event(event_id)
+            attachments = [a['file_path'] for a in att_data]
+        # ----------------------------------------
+
+        self._execute_export(export_data, export_title, file_path, export_format, tasks_to_show=[task_name], attachments=attachments)
 
     def export_all_duty_plans(self, event_id, event_name, export_format):
         last_path = self.settings.get_last_export_path()
         folder_path = QFileDialog.getExistingDirectory(self, "Ordner für Dienst-Pläne auswählen", last_path)
         if not folder_path: return
         self.settings.set_last_export_path(folder_path)
+        
         tasks = self.db_manager.get_tasks_for_event(event_id)
         if not tasks:
             QMessageBox.information(self, "Keine Daten", "Für dieses Event sind keine Aufgaben geplant.")
             return
+            
+        # --- NEU: Anhänge einmal laden ---
+        attachments = []
+        if export_format == 'pdf':
+            att_data = self.db_manager.get_attachments_for_event(event_id)
+            attachments = [a['file_path'] for a in att_data]
+        # ---------------------------------
+
         exported_files = []
         for task in tasks:
             task_id = task['task_id']
             task_name = task['name']
             export_data = self.db_manager.get_export_data_for_event(event_id, filter_task_id=task_id)
             if not export_data: continue
+            
             file_name = f"Dienstplan_{task_name.replace(' ', '_')}.{export_format}"
             file_path = os.path.join(folder_path, file_name)
             export_title = f"{event_name} - {task_name}"
-            if self._execute_export(export_data, export_title, file_path, export_format, tasks_to_show=[task_name]):
+            
+            # --- NEU: Anhänge übergeben ---
+            if self._execute_export(export_data, export_title, file_path, export_format, tasks_to_show=[task_name], attachments=attachments):
                 exported_files.append(file_name)
+            # ------------------------------
+
         if exported_files:
             QMessageBox.information(self, "Export erfolgreich", f"{len(exported_files)} Dienst-Pläne wurden erfolgreich im Ordner\n{folder_path}\ngespeichert.")
         else:

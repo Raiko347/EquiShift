@@ -16,6 +16,7 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QFileDialog,
     QTextEdit,
+    QSpinBox, # NEU
 )
 from PyQt5.QtCore import pyqtSignal
 
@@ -31,7 +32,7 @@ class SettingsDialog(QDialog):
         self.db_manager = db_manager
         
         self.setWindowTitle("Einstellungen")
-        self.setMinimumWidth(800)
+        self.setMinimumWidth(500)
 
         font = self.font()
         font.setPointSize(self.settings.get_font_size())
@@ -49,6 +50,13 @@ class SettingsDialog(QDialog):
         form_layout.addRow(
             "Globale Schriftgröße (in pt):", self.font_size_combo
         )
+        
+        # NEU: Standard-Schichtdauer
+        self.duration_spin = QSpinBox()
+        self.duration_spin.setRange(1, 12)
+        self.duration_spin.setSuffix(" Stunden")
+        self.duration_spin.setValue(self.settings.get_default_shift_duration())
+        form_layout.addRow("Standard-Dauer für neue Schichten:", self.duration_spin)
 
         # --- PDF-Einstellungen ---
         form_layout.addRow(QLabel("<b>PDF Export</b>"))
@@ -68,7 +76,7 @@ class SettingsDialog(QDialog):
 
         self.footer_text_input = QTextEdit()
         self.footer_text_input.setText(self.settings.get_pdf_footer_text())
-        self.footer_text_input.setFixedHeight(175)
+        self.footer_text_input.setFixedHeight(100)
         form_layout.addRow("Footer-Text (links):", self.footer_text_input)
 
         # --- System-Infos ---
@@ -108,6 +116,9 @@ class SettingsDialog(QDialog):
         if new_size != self.settings.get_font_size():
             self.settings.set_font_size(new_size)
             font_changed = True
+
+        # NEU: Dauer speichern
+        self.settings.set_default_shift_duration(self.duration_spin.value())
 
         self.settings.set_pdf_club_name(self.club_name_input.text())
         self.settings.set_pdf_logo_path(self.logo_path_input.text())

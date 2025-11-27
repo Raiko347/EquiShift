@@ -229,8 +229,13 @@ class DatabaseManager:
         )
 
     def import_members(self, members_data):
+        """
+        Importiert eine Liste von Mitgliedern. 
+        Behandelt Duplikate intelligent: "Selina K." (belegt) -> "Selina Kl."
+        """
         added_count = 0
         skipped_count = 0
+
         existing_members_query = "SELECT lower(first_name), lower(last_name), lower(display_name) FROM persons"
         existing_rows = self.execute_query(existing_members_query, fetch="all")
         existing_names = {(row[0], row[1]) for row in existing_rows}
@@ -252,6 +257,7 @@ class DatabaseManager:
                 skipped_count += 1
                 continue
 
+            # ECHTES Duplikat prüfen (Vorname + Nachname existiert schon)
             if (first_name.lower(), last_name.lower()) in existing_names:
                 skipped_count += 1
                 continue
@@ -259,6 +265,7 @@ class DatabaseManager:
             valid_cols = ["first_name", "last_name", "display_name", "birth_date", "street", "postal_code", "city", "email", "phone1", "phone2", "status", "entry_date", "notes"]
             person_data = {key: member.get(key) for key in valid_cols if member.get(key)}
 
+            # Datums-Korrektur
             date_columns = ["birth_date", "entry_date"]
             for col in date_columns:
                 if col in person_data and person_data[col]:
@@ -272,25 +279,39 @@ class DatabaseManager:
                     except (ValueError, TypeError):
                         person_data[col] = None
 
+            # --- INTELLIGENTE NAMENSGENERIERUNG ---
             display_name = person_data.get("display_name", "").strip()
-            if not display_name:
-                display_name = f"{first_name} {last_name[:1]}."
-                i = 2
-                while display_name.lower() in existing_display_names and i <= len(last_name):
-                    display_name = f"{first_name} {last_name[:i]}."
-                    i += 1
-                original_display_name = display_name
-                counter = 2
-                while display_name.lower() in existing_display_names:
-                    display_name = f"{original_display_name}{counter}"
-                    counter += 1
+            
+            # Wenn kein Name da ist ODER der Name aus Excel schon belegt ist:
+            # Wir generieren einen neuen, besseren Namen.
+            if not display_name or display_name.lower() in existing_display_names:
+                found_unique = False
+                
+                # Versuche: "Selina K.", "Selina Kl.", "Selina Kle." ... bis zum vollen Nachnamen
+                for i in range(1, len(last_name) + 1):
+                    candidate = f"{first_name} {last_name[:i]}."
+                    if candidate.lower() not in existing_display_names:
+                        display_name = candidate
+                        found_unique = True
+                        break
+                
+                # Fallback: Wenn selbst der volle Name ("Selina Klenk.") schon existiert (echte Namensvettern)
+                # Dann hängen wir Zahlen an den kürzesten Basis-Namen an (Selina K.2)
+                if not found_unique:
+                    base = f"{first_name} {last_name[:1]}."
+                    counter = 2
+                    while True:
+                        candidate = f"{base}{counter}"
+                        if candidate.lower() not in existing_display_names:
+                            display_name = candidate
+                            break
+                        counter += 1
 
+            # Name zuweisen und registrieren
             person_data["display_name"] = display_name
-            if display_name.lower() in existing_display_names:
-                skipped_count += 1
-                continue
-
             existing_display_names.add(display_name.lower())
+            existing_names.add((first_name.lower(), last_name.lower()))
+            
             self.add_person(**person_data)
             added_count += 1
 
@@ -456,95 +477,102 @@ class DatabaseManager:
         return self.execute_query("DELETE FROM assignments WHERE person_id = ? AND shift_id = ?", (person_id, shift_id))
 
     def get_available_helpers_for_shift(self, shift_id):
-            """
-            Gibt eine Liste aller verfügbaren Helfer zurück.
-            NEU: Enthält jetzt auch den aktuellen Score.
-            """
-            shift_info = self.execute_query("SELECT s.shift_date, s.start_time, s.end_time, t.duty_type_id, t.event_id FROM shifts s JOIN tasks t ON s.task_id = t.task_id WHERE s.shift_id = ?", (shift_id,), fetch='one')
-            if not shift_info: return []
-            
-            shift_date, start_time, end_time, duty_type_id, event_id = shift_info['shift_date'], shift_info['start_time'], shift_info['end_time'], shift_info['duty_type_id'], shift_info['event_id']
-            
-            new_start = datetime.strptime(f"{shift_date} {start_time}", "%Y-%m-%d %H:%M")
-            new_end = datetime.strptime(f"{shift_date} {end_time}", "%Y-%m-%d %H:%M")
-            if new_end <= new_start: new_end += timedelta(days=1)
+        """
+        Gibt eine Liste aller verfügbaren Helfer zurück.
+        NEU: Warnungen beziehen sich jetzt korrekt auf den TAG, nicht das ganze Event.
+        """
+        shift_info = self.execute_query("SELECT s.shift_date, s.start_time, s.end_time, t.duty_type_id, t.event_id FROM shifts s JOIN tasks t ON s.task_id = t.task_id WHERE s.shift_id = ?", (shift_id,), fetch='one')
+        if not shift_info: return []
+        
+        # WICHTIG: Wir merken uns das Datum der aktuellen Schicht
+        target_date = shift_info['shift_date'] 
+        start_time, end_time, duty_type_id, event_id = shift_info['start_time'], shift_info['end_time'], shift_info['duty_type_id'], shift_info['event_id']
+        
+        new_start = datetime.strptime(f"{target_date} {start_time}", "%Y-%m-%d %H:%M")
+        new_end = datetime.strptime(f"{target_date} {end_time}", "%Y-%m-%d %H:%M")
+        if new_end <= new_start: new_end += timedelta(days=1)
 
-            potential_helpers = self.execute_query("""
-                SELECT p.person_id, p.display_name, p.status 
-                FROM persons p 
-                WHERE p.status IN ('Aktiv', 'Passiv') 
-                AND NOT EXISTS (SELECT 1 FROM person_duty_restrictions WHERE person_id = p.person_id AND duty_type_id = ?) 
-                AND NOT EXISTS (SELECT 1 FROM assignments WHERE person_id = p.person_id AND shift_id = ?)
-            """, (duty_type_id, shift_id), fetch='all')
+        potential_helpers = self.execute_query("""
+            SELECT p.person_id, p.display_name, p.status 
+            FROM persons p 
+            WHERE p.status IN ('Aktiv', 'Passiv') 
+              AND NOT EXISTS (SELECT 1 FROM person_duty_restrictions WHERE person_id = p.person_id AND duty_type_id = ?) 
+              AND NOT EXISTS (SELECT 1 FROM assignments WHERE person_id = p.person_id AND shift_id = ?)
+        """, (duty_type_id, shift_id), fetch='all')
+        
+        if not potential_helpers: return []
+
+        # Scores holen
+        all_scores = self.calculate_scores(include_inactive=True)
+        score_map = {s['person_id']: s['total_score'] for s in all_scores}
+
+        all_assignments = self.execute_query("""
+            SELECT a.person_id, s.shift_date, s.start_time, s.end_time 
+            FROM assignments a 
+            JOIN shifts s ON a.shift_id = s.shift_id 
+            JOIN tasks t ON s.task_id = t.task_id 
+            WHERE t.event_id = ?
+        """, (event_id,), fetch='all')
+        
+        person_schedule = defaultdict(list)
+        
+        # NEU: Wir zählen die Dienste PRO TAG und PRO PERSON
+        # Struktur: duties_per_day[person_id][datum_string] = anzahl
+        duties_per_day = defaultdict(lambda: defaultdict(int))
+        
+        for row in all_assignments:
+            s_start = datetime.strptime(f"{row['shift_date']} {row['start_time']}", "%Y-%m-%d %H:%M")
+            s_end = datetime.strptime(f"{row['shift_date']} {row['end_time']}", "%Y-%m-%d %H:%M")
+            if s_end <= s_start: s_end += timedelta(days=1)
             
-            if not potential_helpers: return []
-
-            # --- NEU: Scores holen ---
-            all_scores = self.calculate_scores(include_inactive=True)
-            # Mapping: Person_ID -> Score
-            score_map = {s['person_id']: s['total_score'] for s in all_scores}
-            # -------------------------
-
-            all_assignments = self.execute_query("""
-                SELECT a.person_id, s.shift_date, s.start_time, s.end_time 
-                FROM assignments a 
-                JOIN shifts s ON a.shift_id = s.shift_id 
-                JOIN tasks t ON s.task_id = t.task_id 
-                WHERE t.event_id = ?
-            """, (event_id,), fetch='all')
+            person_schedule[row['person_id']].append((s_start, s_end))
             
-            person_schedule = defaultdict(list)
-            duties_count = defaultdict(int)
+            # Zähle diesen Dienst für den entsprechenden Tag
+            duties_per_day[row['person_id']][row['shift_date']] += 1
+
+        final_list = []
+        for helper in potential_helpers:
+            pid = helper['person_id']
+            has_overlap = False
+            consecutive_warning = False
             
-            for row in all_assignments:
-                s_start = datetime.strptime(f"{row['shift_date']} {row['start_time']}", "%Y-%m-%d %H:%M")
-                s_end = datetime.strptime(f"{row['shift_date']} {row['end_time']}", "%Y-%m-%d %H:%M")
-                if s_end <= s_start: s_end += timedelta(days=1)
-                
-                person_schedule[row['person_id']].append((s_start, s_end))
-                duties_count[row['person_id']] += 1
-
-            final_list = []
-            for helper in potential_helpers:
-                pid = helper['person_id']
-                has_overlap = False
-                consecutive_warning = False
-                
-                for s_start, s_end in person_schedule.get(pid, []):
-                    if new_start < s_end and new_end > s_start:
-                        has_overlap = True
-                        break
-                    if new_start == s_end or new_end == s_start:
-                        consecutive_warning = True
-                
-                if has_overlap: continue
-
-                warnings = []
-                if consecutive_warning:
-                    warnings.append("Keine Pause")
-                if duties_count[pid] >= 2:
-                    warnings.append(f"{duties_count[pid]} Dienste")
-
-                competence = self.execute_query("SELECT is_team_leader FROM person_competencies WHERE person_id = ? AND duty_type_id = ?", (pid, duty_type_id), fetch='one')
-                
-                final_list.append({
-                    'person_id': pid,
-                    'display_name': helper['display_name'],
-                    'status': helper['status'],
-                    'score': score_map.get(pid, 0), # NEU: Score speichern
-                    'has_competence': 1 if competence else 0,
-                    'is_team_leader': competence['is_team_leader'] if competence else 0,
-                    'warnings': ", ".join(warnings)
-                })
+            for s_start, s_end in person_schedule.get(pid, []):
+                if new_start < s_end and new_end > s_start:
+                    has_overlap = True
+                    break
+                if new_start == s_end or new_end == s_start:
+                    consecutive_warning = True
             
-            # Standard-Sortierung (wird im Dialog ggf. überschrieben)
-            final_list.sort(key=lambda x: (
-                -x['is_team_leader'],
-                -x['has_competence'],
-                -(len(x['warnings']) == 0),
-                x['display_name']
-            ))
-            return final_list
+            if has_overlap: continue
+
+            warnings = []
+            if consecutive_warning:
+                warnings.append("Keine Pause")
+            
+            # NEU: Prüfe nur die Anzahl der Dienste am AKTUELLEN Tag (target_date)
+            daily_count = duties_per_day[pid][target_date]
+            if daily_count >= 2:
+                warnings.append(f"{daily_count} Dienste heute")
+
+            competence = self.execute_query("SELECT is_team_leader FROM person_competencies WHERE person_id = ? AND duty_type_id = ?", (pid, duty_type_id), fetch='one')
+            
+            final_list.append({
+                'person_id': pid,
+                'display_name': helper['display_name'],
+                'status': helper['status'],
+                'score': score_map.get(pid, 0),
+                'has_competence': 1 if competence else 0,
+                'is_team_leader': competence['is_team_leader'] if competence else 0,
+                'warnings': ", ".join(warnings)
+            })
+        
+        final_list.sort(key=lambda x: (
+            -x['is_team_leader'],
+            -x['has_competence'],
+            -(len(x['warnings']) == 0),
+            x['display_name']
+        ))
+        return final_list
 
     def update_assignment_status(self, assignment_id, status, substitute_id=None):
         valid_stati = ["Geplant", "Erledigt", "Erledigt (durch Vertreter)", "Nicht Erschienen", "Entschuldigt"]
@@ -914,7 +942,13 @@ class DatabaseManager:
         return total_assigned, total_required
 
     def validate_event_plan(self, event_id):
+        """
+        Prüft den aktuellen Plan auf Regelverstöße UND Unterbesetzung.
+        NEU: Prüft 'Max Schichten' pro Tag, nicht pro Event.
+        """
         warnings = []
+        
+        # --- TEIL 1: Prüfung auf Unterbesetzung / Leere Schichten ---
         query_occupancy = """
             SELECT 
                 t.name AS task_name, 
@@ -926,12 +960,14 @@ class DatabaseManager:
             ORDER BY s.shift_date, s.start_time
         """
         shifts_status = self.execute_query(query_occupancy, (event_id,), fetch='all')
+        
         for shift in shifts_status:
             if shift['current_count'] == 0:
                 warnings.append(f"🔴 Schicht '{shift['task_name']}' ({shift['start_time']}) ist komplett leer.")
             elif shift['current_count'] < shift['required_people']:
                 warnings.append(f"⚠️ Schicht '{shift['task_name']}' ({shift['start_time']}) ist unterbesetzt ({shift['current_count']}/{shift['required_people']}).")
 
+        # --- TEIL 2: Prüfung der zugewiesenen Personen (Regeln) ---
         query_assignments = """
             SELECT 
                 p.person_id, p.display_name, 
@@ -946,31 +982,58 @@ class DatabaseManager:
             ORDER BY p.display_name, s.shift_date, s.start_time
         """
         assignments = self.execute_query(query_assignments, (event_id,), fetch='all')
+        
+        # Datenstrukturen
         person_shifts = defaultdict(list)
+        
         for row in assignments:
             start_dt = datetime.strptime(f"{row['shift_date']} {row['start_time']}", "%Y-%m-%d %H:%M")
             end_dt = datetime.strptime(f"{row['shift_date']} {row['end_time']}", "%Y-%m-%d %H:%M")
             if end_dt <= start_dt: end_dt += timedelta(days=1)
-            shift_data = {'start': start_dt, 'end': end_dt, 'task': row['task_name'], 'duty_id': row['duty_type_id'], 'shift_id': row['shift_id']}
+            
+            shift_data = {
+                'start': start_dt, 'end': end_dt, 
+                'task': row['task_name'], 'duty_id': row['duty_type_id'],
+                'shift_id': row['shift_id'],
+                'date': row['shift_date'] # Datum merken für Tages-Check
+            }
             person_shifts[row['person_id']].append(shift_data)
+            
+            # CHECK: Einschränkungen
             restrictions = self.get_person_restrictions(row['person_id'])
             if row['duty_type_id'] in restrictions:
                 warnings.append(f"🔴 {row['display_name']} ist für '{row['task_name']}' eingeteilt, obwohl eine Einschränkung vorliegt.")
 
+        # CHECK: Zeitkonflikte, Pausen und Max-Dienste (PRO TAG)
         for person_id, shifts in person_shifts.items():
             name = next(x['display_name'] for x in assignments if x['person_id'] == person_id)
             shifts.sort(key=lambda x: x['start'])
+            
+            # Zähler für Dienste pro Tag
+            daily_counts = defaultdict(int)
+            
             for i in range(len(shifts)):
                 current = shifts[i]
+                daily_counts[current['date']] += 1 # Zähle Dienst für diesen Tag
+                
                 for j in range(i + 1, len(shifts)):
                     other = shifts[j]
+                    
+                    # Überlappung
                     if current['start'] < other['end'] and current['end'] > other['start']:
                         warnings.append(f"🔴 {name} hat zeitgleiche Schichten: '{current['task']}' und '{other['task']}'.")
+                    
+                    # Aufeinanderfolgend (Keine Pause)
                     if current['end'] == other['start']:
                         warnings.append(f"⚠️ {name} arbeitet durchgehend (ohne Pause): '{current['task']}' -> '{other['task']}'.")
-            if len(shifts) > 2:
-                warnings.append(f"⚠️ {name} ist für {len(shifts)} Schichten eingeteilt (Empfohlen: Max 2).")
 
+            # CHECK: Zu viele Dienste an einem Tag (> 2)
+            for date_str, count in daily_counts.items():
+                if count > 2:
+                    formatted_date = datetime.strptime(date_str, "%Y-%m-%d").strftime("%d.%m.")
+                    warnings.append(f"⚠️ {name} hat am {formatted_date} {count} Schichten (Empfohlen: Max 2).")
+
+        # CHECK: Fehlende Teamleiter
         missing_tl_shifts = self.check_team_leader_compliance(event_id)
         for shift_id in missing_tl_shifts:
             details = self.execute_query("SELECT t.name, s.shift_date, s.start_time FROM shifts s JOIN tasks t ON s.task_id = t.task_id WHERE s.shift_id = ?", (shift_id,), fetch='one')

@@ -21,7 +21,7 @@ class HelpDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("EquiShift Hilfe")
+        self.setWindowTitle("Hilfe zum Vereinsplaner")
         self.setMinimumSize(800, 600)
 
         # Pfad zum Hilfe-Verzeichnis

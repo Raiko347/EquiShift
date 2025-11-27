@@ -21,7 +21,7 @@ from PyQt5.QtWidgets import (
     QTableWidgetItem,
     QHeaderView,
     QWidget,
-    QHBoxLayout,
+    QHBoxLayout, # Wichtig für das Nebeneinander
 )
 from PyQt5.QtCore import QDate, pyqtSignal, Qt
 
@@ -44,7 +44,9 @@ class PersonDialog(QDialog):
             else "Neues Mitglied anlegen"
         )
         self.setWindowTitle(title)
-        self.setMinimumWidth(500)
+        
+        # NEU: Breiter machen, damit beides nebeneinander passt
+        self.setMinimumWidth(900) 
 
         self._init_ui()
 
@@ -76,25 +78,41 @@ class PersonDialog(QDialog):
         self.entry_date_input = QDateEdit(calendarPopup=True)
         self.entry_date_input.setDisplayFormat("dd.MM.yyyy")
         self.notes_input = QTextEdit()
-        self.notes_input.setFixedHeight(80)
+        self.notes_input.setFixedHeight(60) # Etwas flacher
 
-        form_layout.addRow("Vorname*:", self.first_name_input)
-        form_layout.addRow("Nachname*:", self.last_name_input)
+        # Zweispaltiges Layout für die persönlichen Daten (optional, spart Platz nach unten)
+        row_1 = QHBoxLayout()
+        row_1.addWidget(self.first_name_input); row_1.addWidget(self.last_name_input)
+        form_layout.addRow("Vorname / Nachname*:", row_1)
+        
         form_layout.addRow("Anzeigename*:", self.display_name_input)
-        form_layout.addRow("Geburtsdatum:", self.birth_date_input)
+        
+        row_2 = QHBoxLayout()
+        row_2.addWidget(self.birth_date_input); row_2.addWidget(self.status_input)
+        form_layout.addRow("Geburtstag / Status:", row_2)
+        
         form_layout.addRow("Straße:", self.street_input)
-        form_layout.addRow("PLZ:", self.postal_code_input)
-        form_layout.addRow("Ort:", self.city_input)
+        
+        row_3 = QHBoxLayout()
+        row_3.addWidget(self.postal_code_input); row_3.addWidget(self.city_input)
+        form_layout.addRow("PLZ / Ort:", row_3)
+        
         form_layout.addRow("E-Mail:", self.email_input)
-        form_layout.addRow("Telefon 1:", self.phone1_input)
-        form_layout.addRow("Telefon 2:", self.phone2_input)
-        form_layout.addRow("Status:", self.status_input)
+        
+        row_4 = QHBoxLayout()
+        row_4.addWidget(self.phone1_input); row_4.addWidget(self.phone2_input)
+        form_layout.addRow("Telefon 1 / 2:", row_4)
+        
         form_layout.addRow("Eintrittsdatum:", self.entry_date_input)
         form_layout.addRow("Notizen:", self.notes_input)
+        
         personal_data_groupbox.setLayout(form_layout)
         main_layout.addWidget(personal_data_groupbox)
 
-        # --- Box für Kompetenzen ---
+        # --- NEU: Container für Kompetenzen & Einschränkungen (Nebeneinander) ---
+        skills_layout = QHBoxLayout()
+
+        # --- Box für Kompetenzen (Links) ---
         competency_groupbox = QGroupBox("Kompetenzen & Teamleiter-Status")
         competency_layout = QVBoxLayout()
         self.competency_table = QTableWidget()
@@ -102,19 +120,24 @@ class PersonDialog(QDialog):
         self.competency_table.setHorizontalHeaderLabels(
             ["Dienst", "Kompetenz", "Teamleiter"]
         )
-        self.competency_table.horizontalHeader().setSectionResizeMode(
-            0, QHeaderView.Stretch
-        )
+        self.competency_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.competency_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        self.competency_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
         self.competency_table.verticalHeader().setVisible(False)
         competency_layout.addWidget(self.competency_table)
         competency_groupbox.setLayout(competency_layout)
-        main_layout.addWidget(competency_groupbox)
+        
+        skills_layout.addWidget(competency_groupbox, 2) # Stretch-Faktor 2 (breiter)
 
-        # --- Box für Einschränkungen ---
+        # --- Box für Einschränkungen (Rechts) ---
         restrictions_groupbox = QGroupBox("Dienst-Einschränkungen (max. 3)")
         self.restrictions_layout = QVBoxLayout()
         restrictions_groupbox.setLayout(self.restrictions_layout)
-        main_layout.addWidget(restrictions_groupbox)
+        
+        skills_layout.addWidget(restrictions_groupbox, 1) # Stretch-Faktor 1 (schmäler)
+
+        main_layout.addLayout(skills_layout)
+        # -----------------------------------------------------------------------
 
         self._populate_duties()  # Füllt Kompetenzen und Einschränkungen
 
@@ -171,6 +194,9 @@ class PersonDialog(QDialog):
             # 3. Signale verbinden, um die Logik zu triggern
             cb_competent.stateChanged.connect(self._update_all_states)
             cb_restriction.stateChanged.connect(self._update_all_states)
+        
+        # Leeres Widget am Ende der Restrictions, damit die Checkboxen oben bleiben
+        self.restrictions_layout.addStretch()
 
     def _load_person_data(self):
         """Lädt die Daten des Mitglieds und füllt alle Formularfelder."""
