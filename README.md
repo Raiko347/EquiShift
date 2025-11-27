@@ -71,13 +71,14 @@ Ein integriertes Validierungs-Modul prüft den Dienstplan in Echtzeit auf:
 
 ## 📸 Screenshots
 
-<img width="1126" height="737" alt="05-Auswertungen" src="https://github.com/user-attachments/assets/39a1f119-cbd6-4909-9b81-b6d698b59af6" />
-<img width="1127" height="737" alt="04-Nachbereitung" src="https://github.com/user-attachments/assets/a212aba8-5fca-4c85-82f6-3baa257de9eb" />
-<img width="1127" height="737" alt="03-Schichtplanung" src="https://github.com/user-attachments/assets/390f81c0-550a-4dbb-8a29-52fb3c76af5d" />
-<img width="1126" height="736" alt="02-Events verwalten" src="https://github.com/user-attachments/assets/68d908f4-8eb5-4b1b-b3ac-ddc650c25953" />
 <img width="1126" height="736" alt="01-Dienst-Typen verwalten" src="https://github.com/user-attachments/assets/1008b4b2-081c-4525-8f42-ea2c63e86ce4" />
+<img width="1126" height="736" alt="02-Events verwalten" src="https://github.com/user-attachments/assets/68d908f4-8eb5-4b1b-b3ac-ddc650c25953" />
+<img width="1127" height="737" alt="03-Schichtplanung" src="https://github.com/user-attachments/assets/390f81c0-550a-4dbb-8a29-52fb3c76af5d" />
+<img width="1127" height="737" alt="04-Nachbereitung" src="https://github.com/user-attachments/assets/5a0478cb-f0f4-4195-92fc-7afc5ea5e979" />
+<img width="1126" height="737" alt="05-Auswertungen" src="https://github.com/user-attachments/assets/39a1f119-cbd6-4909-9b81-b6d698b59af6" />
 
 ---
+
 
 ## ⚖️ Haftungsausschluss (Disclaimer)
 
