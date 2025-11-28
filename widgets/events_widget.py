@@ -28,12 +28,22 @@ class EventsWidget(QWidget):
     # NEU: Signal für Synchronisation
     event_selection_changed = pyqtSignal(int)
 
-    def __init__(self, db_manager, parent=None):
+    def __init__(self, db_manager, settings, parent=None):
         super().__init__(parent)
         self.db_manager = db_manager
+        self.settings = settings # Speichern
         self._init_ui()
         self.load_events_data()
-
+        
+        # NEU: Letztes Event wiederherstellen
+        last_id = self.settings.get_last_event_id()
+        if last_id != -1:
+            # Wir nutzen QTimer, damit die UI erst fertig aufgebaut ist
+            from PyQt5.QtCore import QTimer
+            QTimer.singleShot(100, lambda: self.set_current_event(last_id))
+            # Auch das Signal senden, damit andere Widgets Bescheid wissen
+            QTimer.singleShot(150, lambda: self.event_selection_changed.emit(last_id))
+            
     def _init_ui(self):
         """Erstellt die Benutzeroberfläche für dieses Widget."""
         layout = QVBoxLayout(self)

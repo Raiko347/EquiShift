@@ -849,11 +849,30 @@ class DatabaseManager:
             return False, str(e), None, False
 
     def generate_planning_proposal(self, event_id, limit=None):
+        """
+        Erstellt einen automatischen Planungsvorschlag.
+        NEU: Berücksichtigt bereits manuell zugewiesene Helfer!
+        """
         all_scores = self.calculate_scores(include_inactive=True, limit=limit)
         score_map = {score['name']: score['total_score'] for score in all_scores}
         
         duties_per_person = defaultdict(int)
         person_shift_times = defaultdict(list) 
+
+        # --- NEU: Ist-Zustand laden (Manuelle Zuweisungen berücksichtigen) ---
+        existing_assignments = self.get_assignments_for_event(event_id)
+        for assign in existing_assignments:
+            pid = self.execute_query("SELECT person_id FROM persons WHERE display_name = ?", (assign['person_name'],), fetch='one')
+            if pid:
+                pid = pid[0]
+                duties_per_person[pid] += 1
+                
+                # Zeitblock blockieren
+                s_start = datetime.strptime(f"{assign['shift_date']} {assign['start_time']}", "%Y-%m-%d %H:%M")
+                s_end = datetime.strptime(f"{assign['shift_date']} {assign['end_time']}", "%Y-%m-%d %H:%M")
+                if s_end <= s_start: s_end += timedelta(days=1)
+                person_shift_times[pid].append((s_start, s_end))
+        # ---------------------------------------------------------------------
 
         all_shifts_query = "SELECT s.shift_id, s.shift_date, s.start_time, s.end_time FROM shifts s JOIN tasks t ON s.task_id = t.task_id WHERE t.event_id = ? ORDER BY s.shift_date, s.start_time"
         all_shifts = self.execute_query(all_shifts_query, (event_id,), fetch='all')
@@ -869,14 +888,23 @@ class DatabaseManager:
             person_id = candidate['person_id']
             historical_score = score_map.get(candidate['display_name'], 0)
             base_points = historical_score * -1 * 10 
+            
             current_event_duties = duties_per_person[person_id]
             fairness_malus = current_event_duties * 25
+            
             if current_event_duties >= 2:
                 fairness_malus += 10000 
+            
             consecutive_malus = 0
             for s_start, s_end in person_shift_times[person_id]:
+                # Überlappung prüfen (wichtig, falls manuell falsch geplant wurde)
+                if current_start < s_end and current_end > s_start:
+                    return -99999 # Geht gar nicht (Zeitkonflikt)
+                
+                # Pause prüfen
                 if current_start == s_end or current_end == s_start:
                     consecutive_malus += 10000
+            
             status_bonus = 5 if candidate['status'] == 'Aktiv' else 0
             competence_bonus = 0
             if not is_tl_search and candidate['has_competence']:
@@ -884,25 +912,33 @@ class DatabaseManager:
             tl_waste_malus = 0
             if not is_tl_search and candidate['is_team_leader']:
                 tl_waste_malus = 500
+            
             final_score = base_points - fairness_malus - consecutive_malus + status_bonus + competence_bonus - tl_waste_malus
             return final_score
 
+        # --- STUFE 1: Teamleiter platzieren ---
         for shift_row in all_shifts:
             shift_id = shift_row['shift_id']
             current_start, current_end = get_datetime_range(shift_row['shift_date'], shift_row['start_time'], shift_row['end_time'])
+            
             assigned_persons = self.get_assigned_persons_for_shift(shift_id)
             has_tl = any(p['is_team_leader'] for p in assigned_persons)
             shift_details = self.get_shift_by_id(shift_id)
+            
+            # WICHTIG: Wenn voll oder TL da, überspringen!
             is_full = len(assigned_persons) >= shift_details['required_people']
             if has_tl or is_full: continue
+
             available_helpers = self.get_available_helpers_for_shift(shift_id)
             tl_candidates = [h for h in available_helpers if h['is_team_leader']]
             if not tl_candidates: continue
+            
             scored_candidates = []
             for candidate in tl_candidates:
                 score = calculate_candidate_score(candidate, current_start, current_end, is_tl_search=True)
                 scored_candidates.append((score, candidate))
             scored_candidates.sort(key=lambda x: x[0], reverse=True)
+            
             if scored_candidates:
                 best_score = scored_candidates[0][0]
                 if best_score < -5000: continue 
@@ -913,21 +949,28 @@ class DatabaseManager:
                 duties_per_person[person_id] += 1
                 person_shift_times[person_id].append((current_start, current_end))
 
+        # --- STUFE 2: Restliche Plätze auffüllen ---
         for shift_row in all_shifts:
             shift_id = shift_row['shift_id']
             current_start, current_end = get_datetime_range(shift_row['shift_date'], shift_row['start_time'], shift_row['end_time'])
+            
             shift_details = self.get_shift_by_id(shift_id)
             assigned_count = len(self.get_assigned_persons_for_shift(shift_id))
+            
+            # WICHTIG: Nur die Differenz auffüllen!
             num_open = shift_details['required_people'] - assigned_count
             if num_open <= 0: continue
+
             for _ in range(num_open):
                 available_helpers = self.get_available_helpers_for_shift(shift_id)
                 if not available_helpers: break
+                
                 scored_candidates = []
                 for helper in available_helpers:
                     score = calculate_candidate_score(helper, current_start, current_end, is_tl_search=False)
                     scored_candidates.append((score, helper))
                 scored_candidates.sort(key=lambda x: x[0], reverse=True)
+                
                 if scored_candidates:
                     best_score = scored_candidates[0][0]
                     if best_score < -5000: break

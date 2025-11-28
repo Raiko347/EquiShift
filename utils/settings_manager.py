@@ -62,7 +62,15 @@ class SettingsManager:
             "window_width": "1280",
             "window_height": "800",
             "default_shift_duration": "2", # NEU: Standard 2 Stunden
+            "last_event_id": "-1",
         }
+
+    def get_last_event_id(self):
+        return self.config.getint("UI", "last_event_id", fallback=-1)
+
+    def set_last_event_id(self, event_id):
+        self.config.set("UI", "last_event_id", str(event_id))
+        self.save_settings()       
         
         footer_text = (
             "Ein Tausch von Diensten unter den Mitgliedern ist jederzeit möglich. "

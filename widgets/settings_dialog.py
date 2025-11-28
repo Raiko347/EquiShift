@@ -16,7 +16,7 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QFileDialog,
     QTextEdit,
-    QSpinBox, # NEU
+    QSpinBox,
 )
 from PyQt5.QtCore import pyqtSignal
 
@@ -26,8 +26,9 @@ class SettingsDialog(QDialog):
 
     settings_changed = pyqtSignal()
 
-    def __init__(self, settings_manager, db_manager, parent=None):
-        super().__init__(parent)
+    # ÄNDERUNG: parent kommt jetzt als ERSTES Argument
+    def __init__(self, parent, settings_manager, db_manager):
+        super().__init__(parent)  # Hier wird das parent an QDialog übergeben
         self.settings = settings_manager
         self.db_manager = db_manager
         
@@ -47,11 +48,8 @@ class SettingsDialog(QDialog):
         self.font_size_combo.addItems(["8", "9", "10", "11", "12", "14", "16", "18"])
         current_size = str(self.settings.get_font_size())
         self.font_size_combo.setCurrentText(current_size)
-        form_layout.addRow(
-            "Globale Schriftgröße (in pt):", self.font_size_combo
-        )
+        form_layout.addRow("Globale Schriftgröße (in pt):", self.font_size_combo)
         
-        # NEU: Standard-Schichtdauer
         self.duration_spin = QSpinBox()
         self.duration_spin.setRange(1, 12)
         self.duration_spin.setSuffix(" Stunden")
@@ -93,9 +91,7 @@ class SettingsDialog(QDialog):
         note_label.setStyleSheet("font-style: italic;")
         layout.addWidget(note_label)
 
-        button_box = QDialogButtonBox(
-            QDialogButtonBox.Save | QDialogButtonBox.Cancel
-        )
+        button_box = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)
         layout.addWidget(button_box)
@@ -117,9 +113,7 @@ class SettingsDialog(QDialog):
             self.settings.set_font_size(new_size)
             font_changed = True
 
-        # NEU: Dauer speichern
         self.settings.set_default_shift_duration(self.duration_spin.value())
-
         self.settings.set_pdf_club_name(self.club_name_input.text())
         self.settings.set_pdf_logo_path(self.logo_path_input.text())
         self.settings.set_pdf_footer_text(self.footer_text_input.toPlainText())

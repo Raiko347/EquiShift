@@ -112,7 +112,7 @@ class PlanMatrixWidget(QWidget):
         
         self.table.setHorizontalHeaderLabels(header_labels)
         self.table.horizontalHeader().setVisible(True)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         self.table.horizontalHeader().setMinimumSectionSize(100) 
 
         light_gray = QBrush(QColor("#f0f0f0"))
@@ -147,7 +147,10 @@ class PlanMatrixWidget(QWidget):
                     self.table.setItem(row_idx, col_idx, cell_item)
                     continue
 
-                sorted_helpers = sorted(helpers, key=lambda x: (x['is_team_leader'], x['has_competence'], x['helper_name']), reverse=True)
+                sorted_helpers = sorted(helpers, key=lambda x: (
+                    -x['is_team_leader'], # Minus für "True zuerst"
+                    x['helper_name']      # A-Z
+                ))
                 
                 html_lines = []
                 for h in sorted_helpers:
@@ -186,3 +189,11 @@ class PlanMatrixWidget(QWidget):
                 self.table.setRowHeight(row, total_height)
             else:
                 self.table.setRowHeight(row, 40) # Standardhöhe für leere Zeilen
+        # Spaltenbreite korrigieren (Puffer hinzufügen) ---
+        # Erst automatisch anpassen...
+        self.table.resizeColumnsToContents()
+        
+        # ...dann überall 20 Pixel draufschlagen
+        for col in range(self.table.columnCount()):
+            current_width = self.table.columnWidth(col)
+            self.table.setColumnWidth(col, current_width + 50) # 25px Puffer

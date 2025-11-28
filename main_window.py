@@ -34,14 +34,10 @@ class MainWindow(QMainWindow):
         self.current_event_id = -1
         self.setWindowTitle("EquiShift")
         
-        # Schriftart erstellen
         font = self.font()
         font.setPointSize(self.settings.get_font_size())
         self.setFont(font)
-        
-        # --- NEU: Schriftart explizit auf die Menüleiste anwenden ---
         self.menuBar().setFont(font)
-        # ------------------------------------------------------------
 
         if self.settings.get_start_fullscreen():
             self.showFullScreen()
@@ -53,13 +49,10 @@ class MainWindow(QMainWindow):
 
     def _create_menu_bar(self):
             menu_bar = self.menuBar()
-            
-            # Aktuelle Schriftart holen (wurde in __init__ gesetzt)
             font = self.font()
 
-            # --- Datei Menü ---
             file_menu = menu_bar.addMenu("&Datei")
-            file_menu.setFont(font) # NEU: Schriftart für Dropdown setzen
+            file_menu.setFont(font)
             
             new_db_action = QAction("Neue Datenbank...", self)
             new_db_action.triggered.connect(self.create_new_db)
@@ -91,9 +84,8 @@ class MainWindow(QMainWindow):
             exit_action.triggered.connect(self.close)
             file_menu.addAction(exit_action)
 
-            # --- Hilfe Menü ---
             help_menu = menu_bar.addMenu("&Hilfe")
-            help_menu.setFont(font) # NEU: Schriftart für Dropdown setzen
+            help_menu.setFont(font)
             
             show_help_action = QAction("Hilfe anzeigen", self)
             show_help_action.triggered.connect(self.show_help)
@@ -142,10 +134,8 @@ class MainWindow(QMainWindow):
             duty_types_page = DutyTypesWidget(self.db_manager, self)
             self.add_page(duty_types_page, "Dienst-Typen")
             
-            event_page = EventsWidget(self.db_manager, self)
-            # --- NEU: Signal verbinden ---
+            event_page = EventsWidget(self.db_manager, self.settings, self)
             event_page.event_selection_changed.connect(self.on_event_selected)
-            # -----------------------------
             self.add_page(event_page, "Events verwalten")
             
             plan_page = PlanningWidget(self.db_manager, self.settings, self)
@@ -173,13 +163,11 @@ class MainWindow(QMainWindow):
         self.nav_list.addItem(list_item)
 
     def on_page_changed(self, index):
-        """Wird aufgerufen, wenn eine neue Seite im Menü ausgewählt wird (Wächter-Funktion)."""
         page_name = self.nav_list.item(index).text()
         
         if page_name == "Nachbereitung":
             event = self.db_manager.get_event_by_id(self.current_event_id)
             
-            # Prüfen, ob Event existiert UND nicht abgeschlossen ist
             if event and event['status'] != 'Abgeschlossen':
                 reply = QMessageBox.warning(
                     self, 
@@ -191,8 +179,6 @@ class MainWindow(QMainWindow):
                     QMessageBox.Yes
                 )
                 
-                # Wir müssen so oder so verhindern, dass die Nachbereitung angezeigt wird.
-                # Also setzen wir die Auswahl erst mal auf die alte Seite zurück (ohne Signale).
                 previous_widget = self.stack.currentWidget()
                 previous_index = self.stack.indexOf(previous_widget)
                 if previous_index != -1:
@@ -201,17 +187,11 @@ class MainWindow(QMainWindow):
                     self.nav_list.blockSignals(False)
 
                 if reply == QMessageBox.Yes:
-                    # Suche den Index der Seite "Events verwalten"
                     for i in range(self.nav_list.count()):
                         if self.nav_list.item(i).text() == "Events verwalten":
-                            # TRICK: Wir nutzen einen Timer (0ms), um die Umschaltung asynchron 
-                            # nach dem aktuellen Event-Loop durchzuführen. Das aktualisiert die GUI korrekt.
                             QTimer.singleShot(0, lambda: self.nav_list.setCurrentRow(i))
-                            
-                            # Optional: Event in der Tabelle markieren (etwas später, damit Seite geladen ist)
                             QTimer.singleShot(50, lambda: self._select_event_in_manager(self.current_event_id))
                             return
-                
                 return
 
         self.stack.setCurrentIndex(index)
@@ -219,18 +199,15 @@ class MainWindow(QMainWindow):
             self.pages[page_name].refresh_view()
 
     def _select_event_in_manager(self, event_id):
-        """Hilfsmethode für den Timer, um das Event zu markieren."""
         events_widget = self.pages.get("Events verwalten")
         if events_widget and hasattr(events_widget, 'select_event_by_id'):
             events_widget.select_event_by_id(event_id)
 
     def on_event_selected(self, event_id):
-            """Wird aufgerufen, wenn IRGENDEIN Widget das Event ändert."""
             if self.current_event_id == event_id:
                 return
             self.current_event_id = event_id
             
-            # Update Status Bar mit Event-Namen
             event = self.db_manager.get_event_by_id(event_id)
             event_name = event['name'] if event else "Unbekannt"
             self.update_status_bar(event_id, event_name)
@@ -285,7 +262,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Fehler", "Keine Datenbank geladen, um ein Backup zu erstellen.")
             return
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        default_filename = f"EquiShift_backup_{timestamp}.db"
+        default_filename = f"vereinsplaner_backup_{timestamp}.db"
         path, _ = QFileDialog.getSaveFileName(self, "Backup speichern unter...", default_filename, "Datenbankdateien (*.db)")
         if path:
             try:
@@ -295,9 +272,14 @@ class MainWindow(QMainWindow):
                 QMessageBox.critical(self, "Backup fehlgeschlagen", f"Das Backup konnte nicht erstellt werden:\n{e}")
 
     def open_settings(self):
-        dialog = SettingsDialog(self.settings, self.db_manager, self)
-        dialog.settings_changed.connect(self.request_full_restart)
-        dialog.exec_()
+            # WICHTIG: Reihenfolge muss exakt zur __init__ passen!
+            # 1. self (das Parent-Fenster)
+            # 2. self.settings
+            # 3. self.db_manager
+            dialog = SettingsDialog(self, self.settings, self.db_manager)
+            
+            dialog.settings_changed.connect(self.request_full_restart)
+            dialog.exec_()
 
     def request_full_restart(self):
         QMessageBox.information(self, "Neustart erforderlich", "Die Einstellungen wurden gespeichert.\nDie Anwendung wird jetzt neu gestartet, um die Änderungen zu übernehmen.")
@@ -326,7 +308,9 @@ class MainWindow(QMainWindow):
                     <li>Visual Studio Code Version 1.106.0</li>
                     <li>Python 3.12.11 64-bit</li>
                     <li>Qt 5.15.15 / PyQt5 5.15.11</li>
-
+                    <li>Windows_NT x64 10.0.26200</li>
+                    <li>Chromium: 138.0.7204.251</li>
+                    <li>Gemini 3.0 Pro</li>
                 </ul>
                 <p><b>Kern-Bibliotheken:</b></p>
                 <ul>
@@ -350,5 +334,6 @@ class MainWindow(QMainWindow):
         if not is_fullscreen:
             size = self.size()
             self.settings.set_window_size(size.width(), size.height())
+            self.settings.set_last_event_id(self.current_event_id)
         self.settings.save_settings()
         event.accept()

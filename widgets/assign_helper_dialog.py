@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (
     QLabel,
     QComboBox,
     QHBoxLayout,
-    QAbstractItemView # NEU
+    QAbstractItemView
 )
 from PyQt5.QtGui import QColor, QFont
 
@@ -25,7 +25,7 @@ class AssignHelperDialog(QDialog):
         super().__init__(parent)
         self.db_manager = db_manager
         self.shift_id = shift_id
-        self.selected_person_ids = [] # NEU: Liste statt einzelner ID
+        self.selected_person_id = None # Zurück zu einzelner ID
         
         self.helpers_data = []
 
@@ -53,7 +53,6 @@ class AssignHelperDialog(QDialog):
         layout.addLayout(sort_layout)
 
         self.helper_list = QListWidget()
-        # NEU: Mehrfachauswahl aktivieren
         self.helper_list.setSelectionMode(QAbstractItemView.ExtendedSelection)
         layout.addWidget(self.helper_list)
 
@@ -126,9 +125,13 @@ class AssignHelperDialog(QDialog):
 
     def accept(self):
         """Sammelt alle ausgewählten IDs ein."""
+        # NEU: selectedItems() statt currentItem()
         selected_items = self.helper_list.selectedItems()
+        
         if not selected_items:
             return
 
+        # Wir sammeln alle IDs in einer Liste
         self.selected_person_ids = [item.data(1) for item in selected_items if item.data(1)]
+        
         super().accept()

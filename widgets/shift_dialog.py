@@ -102,57 +102,69 @@ class ShiftDialog(QDialog):
             self.required_people_input.setValue(shift["required_people"])
 
     def accept(self):
-        """Validiert und speichert die Daten."""
-        start_date = self.shift_date_input.date()
-        start_time = self.start_time_input.time()
-        end_time = self.end_time_input.time()
-        required_people = self.required_people_input.value()
+            """Validiert und speichert die Daten."""
+            start_date = self.shift_date_input.date()
+            start_time = self.start_time_input.time()
+            end_time = self.end_time_input.time()
+            required_people = self.required_people_input.value()
 
-        # KORRIGIERTE VALIDIERUNG: Nur prüfen, ob die Zeiten identisch sind.
-        if start_time == end_time:
-            QMessageBox.warning(self, "Ungültige Eingabe", "Start- und Endzeit dürfen nicht identisch sein.")
-            return
+            # 1. Prüfung: Start und Ende identisch?
+            if start_time == end_time:
+                QMessageBox.warning(self, "Ungültige Eingabe", "Start- und Endzeit dürfen nicht identisch sein.")
+                return
 
-        shift_data = {
-            "shift_date": start_date.toString("yyyy-MM-dd"),
-            "start_time": start_time.toString("HH:mm"),
-            "end_time": end_time.toString("HH:mm"),
-            "required_people": required_people
-        }
+            # 2. Prüfung: Nachtschicht oder Tippfehler?
+            if start_time > end_time:
+                reply = QMessageBox.question(
+                    self,
+                    "Schicht über Mitternacht?",
+                    f"Die Endzeit ({end_time.toString('HH:mm')}) liegt vor der Startzeit ({start_time.toString('HH:mm')}).\n\n"
+                    "Handelt es sich um eine Nachtschicht, die am nächsten Tag endet?",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No
+                )
+                if reply == QMessageBox.No:
+                    return # User hat "Nein" gesagt -> Dialog bleibt offen zur Korrektur
 
-        # Überschneidungsprüfung
-        existing_shifts = self.db_manager.get_shifts_for_task(self.task_id)
-        for shift in existing_shifts:
-            if self.shift_id and self.shift_id == shift['shift_id']:
-                continue
+            shift_data = {
+                "shift_date": start_date.toString("yyyy-MM-dd"),
+                "start_time": start_time.toString("HH:mm"),
+                "end_time": end_time.toString("HH:mm"),
+                "required_people": required_people
+            }
 
-            shift_date_obj = QDate.fromString(shift['shift_date'], "yyyy-MM-dd")
-            if shift_date_obj == start_date:
-                existing_start = QTime.fromString(shift['start_time'], "HH:mm")
-                existing_end = QTime.fromString(shift['end_time'], "HH:mm")
-                
-                # KORRIGIERTE ÜBERSCHNEIDUNGSPRÜFUNG für Mitternacht
-                # Normalisiere Zeiten auf einen 48-Stunden-Zeitraum, um Mitternacht zu behandeln
-                new_start_secs = start_time.hour() * 3600 + start_time.minute() * 60
-                new_end_secs = end_time.hour() * 3600 + end_time.minute() * 60
-                if new_end_secs <= new_start_secs: new_end_secs += 24 * 3600
+            # Überschneidungsprüfung (wie gehabt)
+            existing_shifts = self.db_manager.get_shifts_for_task(self.task_id)
+            for shift in existing_shifts:
+                if self.shift_id and self.shift_id == shift['shift_id']:
+                    continue
 
-                existing_start_secs = existing_start.hour() * 3600 + existing_start.minute() * 60
-                existing_end_secs = existing_end.hour() * 3600 + existing_end.minute() * 60
-                if existing_end_secs <= existing_start_secs: existing_end_secs += 24 * 3600
+                shift_date_obj = QDate.fromString(shift['shift_date'], "yyyy-MM-dd")
+                if shift_date_obj == start_date:
+                    existing_start = QTime.fromString(shift['start_time'], "HH:mm")
+                    existing_end = QTime.fromString(shift['end_time'], "HH:mm")
+                    
+                    # Normalisiere Zeiten auf einen 48-Stunden-Zeitraum für Mitternacht
+                    new_start_secs = start_time.hour() * 3600 + start_time.minute() * 60
+                    new_end_secs = end_time.hour() * 3600 + end_time.minute() * 60
+                    if new_end_secs <= new_start_secs: new_end_secs += 24 * 3600
 
-                # Überlappungs-Formel mit Sekunden
-                if new_start_secs < existing_end_secs and new_end_secs > existing_start_secs:
-                    QMessageBox.warning(self, "Zeitkonflikt",
-                                        f"Die neue Schicht überschneidet sich mit einer bestehenden Schicht ({shift['start_time']} - {shift['end_time']}) an diesem Tag.")
-                    return
+                    existing_start_secs = existing_start.hour() * 3600 + existing_start.minute() * 60
+                    existing_end_secs = existing_end.hour() * 3600 + existing_end.minute() * 60
+                    if existing_end_secs <= existing_start_secs: existing_end_secs += 24 * 3600
 
-        # Speichern
-        if self.shift_id is None:
-            shift_data['task_id'] = self.task_id
-            self.db_manager.add_shift(**shift_data)
-        else:
-            self.db_manager.update_shift(self.shift_id, **shift_data)
+                    # Überlappungs-Formel
+                    if new_start_secs < existing_end_secs and new_end_secs > existing_start_secs:
+                        QMessageBox.warning(self, "Zeitkonflikt",
+                                            f"Die neue Schicht überschneidet sich mit einer bestehenden Schicht ({shift['start_time']} - {shift['end_time']}) an diesem Tag.")
+                        return
 
-        self.data_changed.emit()
-        super().accept()
+            # Speichern
+            if self.shift_id is None:
+                shift_data['task_id'] = self.task_id
+                self.db_manager.add_shift(**shift_data)
+            else:
+                self.db_manager.update_shift(self.shift_id, **shift_data)
+
+            self.data_changed.emit()
+            super().accept()

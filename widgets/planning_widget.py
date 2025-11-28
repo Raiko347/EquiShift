@@ -320,17 +320,59 @@ class PlanningWidget(QWidget):
         event_id = self.event_combobox.currentData()
         event_name = self.event_combobox.currentText()
         if event_id == -1: return
+        
         limit_text = self.proposal_limit_combo.currentText()
         limit = None
         if "Letzte" in limit_text: limit = int(limit_text.split(' ')[1])
         elif "Letzter" in limit_text: limit = 1
-        reply = QMessageBox.question(self, "Planungsvorschlag erstellen", f"Möchten Sie wirklich einen neuen automatischen Planungsvorschlag für das Event '{event_name}' erstellen?\n\nACHTUNG: Alle bestehenden Zuweisungen für dieses Event werden zuerst entfernt!", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-        if reply == QMessageBox.Yes:
+        
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Planungsvorschlag erstellen")
+        msg.setText(f"Wie soll der automatische Vorschlag für '{event_name}' erstellt werden?")
+        msg.setInformativeText("Wählen Sie eine Strategie:")
+        msg.setIcon(QMessageBox.Question)
+        
+        # Option 1: Harmlos
+        btn_fill = msg.addButton("Nur Lücken füllen (Empfohlen)", QMessageBox.AcceptRole)
+        btn_fill.setToolTip("Behält Ihre manuellen Zuweisungen bei und füllt nur leere Plätze auf.")
+        
+        # Option 2: Destruktiv (Scharfe Warnung im Text)
+        btn_reset = msg.addButton("Alles LÖSCHEN und neu berechnen", QMessageBox.DestructiveRole)
+        btn_reset.setToolTip("ACHTUNG: Löscht alle bestehenden Zuweisungen unwiderruflich!")
+        
+        btn_cancel = msg.addButton("Abbrechen", QMessageBox.RejectRole)
+        
+        msg.exec_()
+        
+        if msg.clickedButton() == btn_cancel:
+            return
+            
+        if msg.clickedButton() == btn_reset:
+            # Zusätzliche Sicherheitsabfrage bei der "Atombomben"-Option
+            confirm = QMessageBox.warning(
+                self, 
+                "Warnung: Datenverlust",
+                "Sind Sie sicher?\n\n"
+                "Alle manuellen Zuweisungen gehen verloren!\n"
+                "Der Plan wird komplett neu generiert.",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            if confirm == QMessageBox.No:
+                return
+                
             self.db_manager.clear_assignments_for_event(event_id)
-            filled, total = self.db_manager.generate_planning_proposal(event_id, limit=limit)
-            self.plan_is_dirty = False
-            self.update_plan_view()
-            QMessageBox.information(self, "Planung abgeschlossen", f"Der automatische Planungsvorschlag ist fertig.\n\nEs konnten {filled} von {total} Plätzen besetzt werden.")
+            
+        filled, total = self.db_manager.generate_planning_proposal(event_id, limit=limit)
+        
+        self.plan_is_dirty = False
+        self.update_plan_view()
+        
+        info_text = f"Planung abgeschlossen.\nEs sind jetzt {filled} von {total} Plätzen besetzt."
+        if msg.clickedButton() == btn_fill:
+            info_text += "\n(Manuelle Zuweisungen wurden beibehalten)."
+            
+        QMessageBox.information(self, "Erfolg", info_text)
 
     def _check_plan(self):
         event_id = self.event_combobox.currentData()
