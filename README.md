@@ -6,13 +6,13 @@ Entwickelt, um die Organisation komplexer Vereinsfeste (wie Sommerfeste, Turnier
 
 ---
 
-## ✨ Features
+## ✨ Features (Version 1.1)
 
 ### 👥 Mitgliederverwaltung
 *   **Stammdaten:** Verwaltung aller relevanten Kontaktdaten.
-*   **Kompetenzen:** Zuweisung von Spezialfähigkeiten (z.B. "Darf Kasse bedienen") und **Teamleiter-Status**.
-*   **Einschränkungen:** Definition von Diensten, die ein Mitglied *nicht* übernehmen kann (z.B. gesundheitliche Gründe).
-*   **Import/Export:** Massenimport via Excel/CSV und Export der Mitgliederlisten.
+*   **Kompetenzen:** Zuweisung von Spezialfähigkeiten und **Teamleiter-Status**.
+*   **Einschränkungen:** Definition von Diensten, die ein Mitglied *nicht* übernehmen kann.
+*   **Intelligenter Import:** Massenimport via Excel/CSV mit automatischer Dubletten-Erkennung und Namenskürzung.
 
 ### 📅 Event-Management
 *   **Status-Workflow:** Events durchlaufen Phasen (In Planung -> Aktiv -> Abgeschlossen -> Abgesagt).
@@ -22,20 +22,23 @@ Entwickelt, um die Organisation komplexer Vereinsfeste (wie Sommerfeste, Turnier
 ### 🧠 Intelligente Schichtplanung
 Das Herzstück der Anwendung. Der Planungs-Algorithmus sorgt für Fairness und Gesundheitsschutz:
 *   **Fairness-Score:** Bevorzugt Mitglieder, die bisher wenig geleistet haben (Bonus/Malus-System).
-*   **Ressourcen-Schonung:** Teamleiter werden gezielt eingesetzt und nicht für einfache Tätigkeiten "verschwendet", solange andere Helfer verfügbar sind.
-*   **Gesundheitsschutz:** Erzwingt Pausen zwischen Schichten (keine Doppelschichten).
-*   **Lastenverteilung:** Versucht, eine maximale Anzahl an Schichten pro Person (Standard: 2) nicht zu überschreiten.
+*   **Ressourcen-Schonung:** Teamleiter werden gezielt eingesetzt und nicht für einfache Tätigkeiten "verschwendet".
+*   **Gesundheitsschutz:** Erzwingt Pausen zwischen Schichten.
+*   **Lastenverteilung:** Beachtet maximale Schichten pro Tag.
+*   **Komfort:** Automatische Vorbelegung von Zeiten und Datum beim Anlegen neuer Schichten.
 
 ### 🛡️ Qualitätssicherung ("Der Wächter")
 Ein integriertes Validierungs-Modul prüft den Dienstplan in Echtzeit auf:
 *   Unterbesetzte oder leere Schichten.
+*   **Jugendschutz:** Prüfung auf Mindestalter (konfigurierbar) bei kritischen Diensten (Bar/Kasse).
 *   Fehlende Teamleiter in kritischen Bereichen.
 *   Verstöße gegen Ruhezeiten oder Einschränkungen.
 
 ### 🖨️ Reporting & Export
-*   **Profi-PDF-Export:** Erstellt übersichtliche Dienstpläne (Matrix-Ansicht) und **fügt automatisch alle hinterlegten Event-Anhänge** (Sicherheitsvorschriften etc.) zu einer einzigen, druckfertigen Datei zusammen.
-*   **Excel-Export:** Detaillierte Stundenübersichten und Nachweise.
-*   **Nachbereitung:** Erfassung der tatsächlich geleisteten Stunden inkl. Vertretungs-Management.
+*   **Profi-PDF-Export:** Erstellt übersichtliche Dienstpläne (Matrix-Ansicht) und **fügt automatisch alle hinterlegten Event-Anhänge** zu einer einzigen Datei zusammen.
+*   **Interaktiv:** PDF enthält klickbaren "Rückmeldung"-Button für E-Mail-Feedback.
+*   **Excel-Export:** Detaillierte Stundenübersichten, Pflichtstunden-Status und Nachweise.
+*   **Pflichtstunden-Monitor:** Ampel-System für geleistete vs. geschuldete Jahresstunden.
 
 ### 💾 Technik
 *   **Datenbank:** SQLite mit automatischem **Migrations-System** (Updatesicher auch bei zukünftigen Erweiterungen).
@@ -60,7 +63,7 @@ Ein integriertes Validierungs-Modul prüft den Dienstplan in Echtzeit auf:
     ```bash
     pip install -r requirements.txt
     ```
-    *(Benötigte Pakete: `PyQt5`, `pandas`, `openpyxl`, `reportlab`, `pypdf`)*
+    *(Benötigte Pakete: `PyQt5`, `pandas`, `openpyxl`, `reportlab`, `pypdf`, `cryptography`)*
 
 3.  **Starten:**
     ```bash
