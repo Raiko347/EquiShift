@@ -296,7 +296,7 @@ class MainWindow(QMainWindow):
     def show_about_dialog(self):
             about_text = """
                 <h2>EquiShift</h2>
-                <p>Version 1.0</p>
+                <p>Version 1.1</p>
                 <p>Copyright © 2025 Raiko347</p>
                 <p>Als umfassende End-to-End-Lösung konzipiert, meistert diese Anwendung die gesamte
                 Orchestrierung komplexer Veranstaltungen. Von der strategischen Personaldisposition über

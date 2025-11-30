@@ -63,11 +63,16 @@ class DutyTypeDialog(QDialog):
 
     def _load_data(self):
         """Lädt die Daten des Dienst-Typs und füllt die Felder."""
-        # Wir brauchen eine neue Methode im DB-Manager
         duty_type = self.db_manager.get_duty_type_by_id(self.duty_type_id)
         if duty_type:
             self.name_input.setText(duty_type["name"])
             self.description_input.setPlainText(duty_type["description"])
+            
+            # NEU: Wenn geschützt, Namensfeld sperren
+            if duty_type["is_protected"]:
+                self.name_input.setReadOnly(True)
+                self.name_input.setToolTip("Dieser System-Dienst kann nicht umbenannt werden.")
+                self.setWindowTitle("Dienst-Typ bearbeiten (System-Dienst)")
 
     def accept(self):
         """Validiert und speichert die Daten."""
@@ -81,13 +86,10 @@ class DutyTypeDialog(QDialog):
             return
 
         if self.duty_type_id is None:
-            # Wir brauchen eine neue Methode im DB-Manager
             self.db_manager.add_duty_type(name, description)
         else:
-            # Wir brauchen eine neue Methode im DB-Manager
-            self.db_manager.update_duty_type(
-                self.duty_type_id, name, description
-            )
+            # Update aufrufen (DB-Manager kümmert sich darum, dass Name bei geschützten ignoriert wird)
+            self.db_manager.update_duty_type(self.duty_type_id, name, description)
 
         self.data_changed.emit()
         super().accept()

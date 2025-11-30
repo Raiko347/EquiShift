@@ -20,57 +20,62 @@ class SettingsManager:
             self._create_default_config()
         else:
             self.config.read(CONFIG_FILE, encoding="utf-8")
-            if not self.config.has_section("UI"):
-                self.config.add_section("UI")
-            if not self.config.has_option("UI", "font_size"):
-                self.config.set("UI", "font_size", "10")
-            if not self.config.has_option("UI", "start_fullscreen"):
-                self.config.set("UI", "start_fullscreen", "false")
-            if not self.config.has_option("UI", "window_width"):
-                self.config.set("UI", "window_width", "1280")
-            if not self.config.has_option("UI", "window_height"):
-                self.config.set("UI", "window_height", "800")
             
-            # NEU: Standard-Schichtdauer
-            if not self.config.has_option("UI", "default_shift_duration"):
-                self.config.set("UI", "default_shift_duration", "2")
+            # Sicherstellen, dass alle Sektionen und Optionen existieren
+            if not self.config.has_section("UI"): self.config.add_section("UI")
+            if not self.config.has_option("UI", "font_size"): self.config.set("UI", "font_size", "10")
+            if not self.config.has_option("UI", "start_fullscreen"): self.config.set("UI", "start_fullscreen", "false")
+            if not self.config.has_option("UI", "window_width"): self.config.set("UI", "window_width", "1280")
+            if not self.config.has_option("UI", "window_height"): self.config.set("UI", "window_height", "800")
+            if not self.config.has_option("UI", "default_shift_duration"): self.config.set("UI", "default_shift_duration", "2")
+            if not self.config.has_option("UI", "last_event_id"): self.config.set("UI", "last_event_id", "-1")
 
-            if not self.config.has_section("PDF"):
-                self.config.add_section("PDF")
-            if not self.config.has_option("PDF", "club_name"):
-                self.config.set("PDF", "club_name", "Mein Verein e.V.")
-            if not self.config.has_option("PDF", "footer_text"):
-                self.config.set("PDF", "footer_text", "Allgemeine Informationen: ...")
-            if not self.config.has_option("PDF", "logo_path"):
-                self.config.set("PDF", "logo_path", "logo.png")
-            if not self.config.has_option("PDF", "attachment_path"):
-                self.config.set("PDF", "attachment_path", "")
+            if not self.config.has_section("Club"): self.config.add_section("Club")
+            if not self.config.has_option("Club", "mandatory_hours"): self.config.set("Club", "mandatory_hours", "20")
 
-            if not self.config.has_section("Paths"):
-                self.config.add_section("Paths")
-            if not self.config.has_option("Paths", "last_export_path"):
-                self.config.set("Paths", "last_export_path", "")
+            # --- NEU: Altersgrenzen ---
+            if not self.config.has_section("AgeLimits"):
+                self.config.add_section("AgeLimits")
+            if not self.config.has_option("AgeLimits", "min_age_bar"):
+                self.config.set("AgeLimits", "min_age_bar", "18")
+            if not self.config.has_option("AgeLimits", "min_age_kasse"):
+                self.config.set("AgeLimits", "min_age_kasse", "18")
+            # --------------------------
+
+            if not self.config.has_section("PDF"): self.config.add_section("PDF")
+            if not self.config.has_option("PDF", "club_name"): self.config.set("PDF", "club_name", "Mein Verein e.V.")
+            if not self.config.has_option("PDF", "footer_text"): self.config.set("PDF", "footer_text", "Allgemeine Informationen: ...")
+            if not self.config.has_option("PDF", "logo_path"): self.config.set("PDF", "logo_path", "logo.png")
+            if not self.config.has_option("PDF", "attachment_path"): self.config.set("PDF", "attachment_path", "")
+            if not self.config.has_option("PDF", "feedback_email"): self.config.set("PDF", "feedback_email", "")
+
+            if not self.config.has_section("Paths"): self.config.add_section("Paths")
+            if not self.config.has_option("Paths", "last_export_path"): self.config.set("Paths", "last_export_path", "")
 
             self.save_settings()
 
     def _create_default_config(self):
         """Erstellt eine Konfigurationsdatei mit Standardwerten."""
         self.config["Database"] = {"path": ""}
+        
         self.config["UI"] = {
             "font_size": "10",
             "start_fullscreen": "false",
             "window_width": "1280",
             "window_height": "800",
-            "default_shift_duration": "2", # NEU: Standard 2 Stunden
-            "last_event_id": "-1",
+            "default_shift_duration": "2",
+            "last_event_id": "-1"
         }
-
-    def get_last_event_id(self):
-        return self.config.getint("UI", "last_event_id", fallback=-1)
-
-    def set_last_event_id(self, event_id):
-        self.config.set("UI", "last_event_id", str(event_id))
-        self.save_settings()       
+        
+        self.config["Club"] = {
+            "mandatory_hours": "20"
+        }
+        
+        # NEU
+        self.config["AgeLimits"] = {
+            "min_age_bar": "18",
+            "min_age_kasse": "18"
+        }
         
         footer_text = (
             "Ein Tausch von Diensten unter den Mitgliedern ist jederzeit möglich. "
@@ -84,80 +89,68 @@ class SettingsManager:
             "footer_text": footer_text,
             "logo_path": "logo.png",
             "attachment_path": "",
+            "feedback_email": ""
         }
+        
         self.config["Paths"] = {"last_export_path": ""}
+        
         self.save_settings()
 
     def save_settings(self):
         with open(CONFIG_FILE, "w", encoding="utf-8") as configfile:
             self.config.write(configfile)
 
-    def get_db_path(self):
-        return self.config.get("Database", "path", fallback="")
-
-    def set_db_path(self, path):
-        self.config.set("Database", "path", path)
-        self.save_settings()
+    def get_db_path(self): return self.config.get("Database", "path", fallback="")
+    def set_db_path(self, path): self.config.set("Database", "path", path); self.save_settings()
 
     # --- UI-Einstellungen ---
-    def get_font_size(self):
-        return self.config.getint("UI", "font_size", fallback=10)
+    def get_font_size(self): return self.config.getint("UI", "font_size", fallback=10)
+    def set_font_size(self, size): self.config.set("UI", "font_size", str(size))
 
-    def set_font_size(self, size):
-        self.config.set("UI", "font_size", str(size))
-
-    def get_start_fullscreen(self):
-        return self.config.getboolean("UI", "start_fullscreen", fallback=False)
-
-    def set_start_fullscreen(self, is_fullscreen):
-        self.config.set("UI", "start_fullscreen", "true" if is_fullscreen else "false")
+    def get_start_fullscreen(self): return self.config.getboolean("UI", "start_fullscreen", fallback=False)
+    def set_start_fullscreen(self, is_fullscreen): self.config.set("UI", "start_fullscreen", "true" if is_fullscreen else "false")
 
     def get_window_size(self):
         width = self.config.getint("UI", "window_width", fallback=1280)
         height = self.config.getint("UI", "window_height", fallback=800)
         return width, height
-
     def set_window_size(self, width, height):
         self.config.set("UI", "window_width", str(width))
         self.config.set("UI", "window_height", str(height))
-        
-    # NEU: Getter/Setter für Schichtdauer
-    def get_default_shift_duration(self):
-        return self.config.getint("UI", "default_shift_duration", fallback=2)
 
-    def set_default_shift_duration(self, hours):
-        self.config.set("UI", "default_shift_duration", str(hours))
-        self.save_settings()
+    def get_default_shift_duration(self): return self.config.getint("UI", "default_shift_duration", fallback=2)
+    def set_default_shift_duration(self, hours): self.config.set("UI", "default_shift_duration", str(hours)); self.save_settings()
+
+    def get_last_event_id(self): return self.config.getint("UI", "last_event_id", fallback=-1)
+    def set_last_event_id(self, event_id): self.config.set("UI", "last_event_id", str(event_id)); self.save_settings()
+
+    # --- Club-Einstellungen ---
+    def get_mandatory_hours(self): return self.config.getint("Club", "mandatory_hours", fallback=20)
+    def set_mandatory_hours(self, hours): self.config.set("Club", "mandatory_hours", str(hours)); self.save_settings()
+
+    # --- NEU: Altersgrenzen ---
+    def get_min_age_bar(self): return self.config.getint("AgeLimits", "min_age_bar", fallback=18)
+    def set_min_age_bar(self, age): self.config.set("AgeLimits", "min_age_bar", str(age)); self.save_settings()
+
+    def get_min_age_kasse(self): return self.config.getint("AgeLimits", "min_age_kasse", fallback=18)
+    def set_min_age_kasse(self, age): self.config.set("AgeLimits", "min_age_kasse", str(age)); self.save_settings()
+    # --------------------------
 
     # --- PDF-Einstellungen ---
-    def get_pdf_club_name(self):
-        return self.config.get("PDF", "club_name", fallback="Mein Verein e.V.")
+    def get_pdf_club_name(self): return self.config.get("PDF", "club_name", fallback="Mein Verein e.V.")
+    def set_pdf_club_name(self, name): self.config.set("PDF", "club_name", name)
 
-    def set_pdf_club_name(self, name):
-        self.config.set("PDF", "club_name", name)
+    def get_pdf_footer_text(self): return self.config.get("PDF", "footer_text", fallback="")
+    def set_pdf_footer_text(self, text): self.config.set("PDF", "footer_text", text)
 
-    def get_pdf_footer_text(self):
-        return self.config.get("PDF", "footer_text", fallback="")
+    def get_pdf_logo_path(self): return self.config.get("PDF", "logo_path", fallback="logo.png")
+    def set_pdf_logo_path(self, path): self.config.set("PDF", "logo_path", path)
 
-    def set_pdf_footer_text(self, text):
-        self.config.set("PDF", "footer_text", text)
+    def get_pdf_attachment_path(self): return self.config.get("PDF", "attachment_path", fallback="")
+    def set_pdf_attachment_path(self, path): self.config.set("PDF", "attachment_path", path); self.save_settings()
 
-    def get_pdf_logo_path(self):
-        return self.config.get("PDF", "logo_path", fallback="logo.png")
+    def get_feedback_email(self): return self.config.get("PDF", "feedback_email", fallback="")
+    def set_feedback_email(self, email): self.config.set("PDF", "feedback_email", email); self.save_settings()
 
-    def set_pdf_logo_path(self, path):
-        self.config.set("PDF", "logo_path", path)
-
-    def get_pdf_attachment_path(self):
-        return self.config.get("PDF", "attachment_path", fallback="")
-
-    def set_pdf_attachment_path(self, path):
-        self.config.set("PDF", "attachment_path", path)
-        self.save_settings()
-
-    def get_last_export_path(self):
-        return self.config.get("Paths", "last_export_path", fallback="")
-
-    def set_last_export_path(self, path):
-        self.config.set("Paths", "last_export_path", path)
-        self.save_settings()
+    def get_last_export_path(self): return self.config.get("Paths", "last_export_path", fallback="")
+    def set_last_export_path(self, path): self.config.set("Paths", "last_export_path", path); self.save_settings()

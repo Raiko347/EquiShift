@@ -10,6 +10,7 @@ from datetime import datetime
 import os
 import re
 import io
+from urllib.parse import quote
 
 # ReportLab Imports
 from reportlab.lib import colors
@@ -22,7 +23,7 @@ from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 # GUI Imports für Fehlermeldungen
 from PyQt5.QtWidgets import QMessageBox
 
-# PyPDF Imports (für Anhänge)
+# PyPDF Imports
 try:
     from pypdf import PdfWriter, PdfReader
 except ImportError:
@@ -30,6 +31,18 @@ except ImportError:
 
 class Exporter:
     """Eine Klasse, die nur statische Methoden für den Export bereitstellt."""
+
+    @staticmethod
+    def _handle_permission_error(file_path):
+        """Hilfsmethode für eine freundliche Fehlermeldung bei offenen Dateien."""
+        filename = os.path.basename(file_path)
+        QMessageBox.warning(
+            None, 
+            "Datei ist geöffnet", 
+            f"Der Zugriff auf die Datei wurde verweigert:\n{filename}\n\n"
+            "Die Datei ist wahrscheinlich noch in einem anderen Programm geöffnet.\n"
+            "Bitte schließen Sie die Datei und versuchen Sie es erneut."
+        )
 
     @staticmethod
     def create_member_template(file_path):
@@ -42,6 +55,9 @@ class Exporter:
                 worksheet['A2'] = "Max"; worksheet['B2'] = "Mustermann"; worksheet['C2'] = "Max M."; worksheet['D2'] = "TT.MM.JJJJ"; worksheet['K2'] = "Aktiv"; worksheet['L2'] = "TT.MM.JJJJ"
                 for i, col in enumerate(columns): worksheet.column_dimensions[chr(65 + i)].width = len(col) + 5
             return True
+        except PermissionError:
+            Exporter._handle_permission_error(file_path)
+            return False
         except Exception as e:
             print(f"Fehler: {e}")
             return False
@@ -63,8 +79,83 @@ class Exporter:
                     max_len = max(df[col_name].astype(str).map(len).max(), len(col_name))
                     worksheet.column_dimensions[chr(65 + i)].width = max_len + 2
             return True
+        except PermissionError:
+            Exporter._handle_permission_error(file_path)
+            return False
         except Exception as e:
             print(f"Fehler: {e}")
+            return False
+
+    @staticmethod
+    def export_ranking_to_xlsx(data, file_path):
+        if not data: return False
+        df = pd.DataFrame(data)
+        df = df[['name', 'total_score']]
+        df.columns = ["Name", "Gesamt-Score"]
+        try:
+            with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
+                df.to_excel(writer, sheet_name="Bonus-Malus Ranking", index=False)
+                worksheet = writer.sheets["Bonus-Malus Ranking"]
+                worksheet.column_dimensions['A'].width = 30
+                worksheet.column_dimensions['B'].width = 15
+            return True
+        except PermissionError:
+            Exporter._handle_permission_error(file_path)
+            return False
+        except Exception as e:
+            print(f"Fehler beim Ranking-Export: {e}")
+            return False
+
+    @staticmethod
+    def export_detailed_summary_to_xlsx(data, file_path):
+        if not data: return False
+        df = pd.DataFrame(data)
+        df.columns = ["Name", "Geleistete Stunden", "Erledigt", "Als Vertreter", "Entschuldigt", "Nicht Erschienen"]
+        df['Geleistete Stunden'] = df['Geleistete Stunden'].round(2)
+        try:
+            with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
+                df.to_excel(writer, sheet_name="Detail-Matrix", index=False)
+                worksheet = writer.sheets["Detail-Matrix"]
+                worksheet.column_dimensions['A'].width = 30
+                for col in ['B', 'C', 'D', 'E', 'F']:
+                    worksheet.column_dimensions[col].width = 18
+            return True
+        except PermissionError:
+            Exporter._handle_permission_error(file_path)
+            return False
+        except Exception as e:
+            print(f"Fehler beim Detail-Export: {e}")
+            return False
+
+    @staticmethod
+    def export_mandatory_status_to_xlsx(data, file_path, target_hours):
+        if not data: return False
+        export_list = []
+        for entry in data:
+            worked = entry['worked_hours']
+            diff = worked - target_hours
+            status = "Erfüllt" if diff >= 0 else "NICHT Erfüllt"
+            export_list.append({
+                "Name": entry['name'],
+                "Ist (Std.)": round(worked, 2),
+                "Soll (Std.)": round(target_hours, 2),
+                "Differenz": round(diff, 2),
+                "Status": status
+            })
+        df = pd.DataFrame(export_list)
+        try:
+            with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
+                df.to_excel(writer, sheet_name="Pflichtstunden", index=False)
+                worksheet = writer.sheets["Pflichtstunden"]
+                worksheet.column_dimensions['A'].width = 30
+                for col in ['B', 'C', 'D', 'E']:
+                    worksheet.column_dimensions[col].width = 15
+            return True
+        except PermissionError:
+            Exporter._handle_permission_error(file_path)
+            return False
+        except Exception as e:
+            print(f"Fehler beim Pflichtstunden-Export: {e}")
             return False
 
     @staticmethod
@@ -75,13 +166,14 @@ class Exporter:
         df['Geleistete Stunden'] = df['Geleistete Stunden'].round(2)
         try:
             with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
-                sheet_name = f"Stundenübersicht {time_period}"
-                df.to_excel(writer, sheet_name=sheet_name, index=False)
-                worksheet = writer.sheets[sheet_name]
-                for column_cells in worksheet.columns:
-                    length = max(len(str(cell.value)) for cell in column_cells)
-                    worksheet.column_dimensions[column_cells[0].column_letter].width = length + 2
+                df.to_excel(writer, sheet_name=f"Stunden {time_period}", index=False)
+                worksheet = writer.sheets[f"Stunden {time_period}"]
+                worksheet.column_dimensions['A'].width = 30
+                worksheet.column_dimensions['B'].width = 20
             return True
+        except PermissionError:
+            Exporter._handle_permission_error(file_path)
+            return False
         except Exception as e:
             print(f"Fehler: {e}")
             return False
@@ -106,15 +198,15 @@ class Exporter:
                     length = max(len(str(cell.value)) for cell in column_cells)
                     worksheet.column_dimensions[column_cells[0].column_letter].width = length + 2
             return True
+        except PermissionError:
+            Exporter._handle_permission_error(file_path)
+            return False
         except Exception as e:
             print(f"Fehler: {e}")
             return False
 
     @staticmethod
     def export_to_pdf_matrix(data, event_name, file_path, settings, tasks_to_show=None, attachments=None):
-        """
-        Exportiert den Dienstplan als PDF und fügt optionale Anhänge (PDFs) hinzu.
-        """
         if not data: return False
 
         # 1. Daten aufbereiten
@@ -185,6 +277,7 @@ class Exporter:
         club_name = settings.get_pdf_club_name()
         logo_path = settings.get_pdf_logo_path()
         footer_text = settings.get_pdf_footer_text()
+        feedback_email = settings.get_feedback_email()
 
         def _header_footer(canvas, doc):
             canvas.saveState()
@@ -196,6 +289,7 @@ class Exporter:
             p = Paragraph(f"Dienstplan {club_name}<br/>Veranstaltung: {event_name}", styles['h1'])
             p.wrapOn(canvas, doc.width - 2*inch, doc.height)
             p.drawOn(canvas, doc.leftMargin + 0.2*inch, header_y + 0.1*inch)
+            
             if not os.path.isabs(logo_path): logo_path_abs = os.path.join(os.path.abspath("."), logo_path)
             else: logo_path_abs = logo_path
             if os.path.exists(logo_path_abs):
@@ -203,56 +297,74 @@ class Exporter:
                     img = Image(logo_path_abs, width=0.7*inch, height=0.7*inch)
                     img.drawOn(canvas, doc.leftMargin + doc.width - 1*inch, header_y + 0.05*inch)
                 except: pass
+            
             footer_y = doc.bottomMargin - 1.2*inch
             p_left = Paragraph(footer_text, styles['Normal'])
-            p_left.wrapOn(canvas, doc.width * 0.7, doc.height)
+            p_left.wrapOn(canvas, doc.width * 0.6, doc.height)
             p_left.drawOn(canvas, doc.leftMargin, footer_y)
+            
+            # Mailto-Button
+            if feedback_email:
+                subject = quote(f"Änderung zum Dienstplan: {event_name}")
+                body = quote("Hallo Orga-Team,\n\nich tausche meinen Dienst wie folgt:\n\nName:\nDienst (mit Uhrzeit):\nVertretung:")
+                mailto_link = f"mailto:{feedback_email}?subject={subject}&body={body}"
+                
+                btn_x = doc.leftMargin + doc.width * 0.65
+                btn_y = footer_y + 0.3 * inch
+                btn_width = 2.5 * inch
+                btn_height = 0.5 * inch
+                
+                canvas.setFillColor(colors.HexColor("#FFFACD")) 
+                canvas.rect(btn_x, btn_y, btn_width, btn_height, fill=1, stroke=1)
+                canvas.setFillColor(colors.black)
+                canvas.setFont("Helvetica-Bold", 10)
+                canvas.drawCentredString(btn_x + btn_width/2, btn_y + 0.3*inch, "Rückmeldung zum")
+                canvas.drawCentredString(btn_x + btn_width/2, btn_y + 0.15*inch, "Tausch von Diensten")
+                canvas.linkURL(mailto_link, (btn_x, btn_y, btn_x + btn_width, btn_y + btn_height), relative=1)
+
             right_style = ParagraphStyle(name='Right', parent=styles['Normal'], alignment=TA_RIGHT, fontSize=8)
-            p_right = Paragraph("EquiShift © 2025<br/>by Raiko347", right_style)
+            p_right = Paragraph("EquiShift © 2025<br/>by ByteWolf0x15B", right_style)
             p_right.wrapOn(canvas, doc.width * 0.25, doc.height)
             p_right.drawOn(canvas, doc.leftMargin + doc.width * 0.75, footer_y)
             canvas.restoreState()
 
         try:
             doc.build(story, onFirstPage=_header_footer, onLaterPages=_header_footer)
+        except PermissionError:
+            Exporter._handle_permission_error(file_path)
+            return False
         except Exception as e:
             print(f"Fehler beim Erstellen des Basis-PDFs: {e}")
             return False
 
-        # 4. Merging mit Anhängen (pypdf)
-        
-        # CHECK 1: Ist pypdf installiert?
         if PdfWriter is None:
             QMessageBox.warning(None, "Fehlende Komponente", "Die Bibliothek 'pypdf' ist nicht installiert.\nAnhänge können nicht hinzugefügt werden.\n\nBitte 'pip install pypdf' ausführen.")
             try:
-                with open(file_path, "wb") as f:
-                    f.write(buffer.getvalue())
+                with open(file_path, "wb") as f: f.write(buffer.getvalue())
                 return True
+            except PermissionError:
+                Exporter._handle_permission_error(file_path)
+                return False
             except Exception as e:
                 print(f"Fehler beim Speichern (ohne Anhänge): {e}")
                 return False
 
         try:
             merger = PdfWriter()
-            
-            # Dienstplan hinzufügen
             buffer.seek(0)
             merger.append(buffer)
-            
-            # Anhänge hinzufügen
             if attachments:
                 for att_path in attachments:
                     if os.path.exists(att_path):
-                        try:
-                            merger.append(att_path)
-                        except Exception as e:
-                            QMessageBox.warning(None, "Fehler bei Anhang", f"Konnte Anhang nicht hinzufügen:\n{att_path}\n\nFehler: {e}")
-                    else:
-                         QMessageBox.warning(None, "Anhang fehlt", f"Die Datei wurde nicht gefunden:\n{att_path}")
-            
+                        try: merger.append(att_path)
+                        except Exception as e: QMessageBox.warning(None, "Fehler bei Anhang", f"Konnte Anhang nicht hinzufügen:\n{att_path}\n\nFehler: {e}")
+                    else: QMessageBox.warning(None, "Anhang fehlt", f"Die Datei wurde nicht gefunden:\n{att_path}")
             merger.write(file_path)
             merger.close()
             return True
+        except PermissionError:
+            Exporter._handle_permission_error(file_path)
+            return False
         except Exception as e:
             QMessageBox.critical(None, "Export Fehler", f"Kritischer Fehler beim PDF-Export:\n{e}")
             return False
@@ -289,11 +401,9 @@ class Exporter:
             table = Table(table_data, colWidths=[1.5*inch, 2*inch, 0.8*inch, 0.8*inch, 1*inch, 1*inch, 2.5*inch], repeatRows=1)
             table.setStyle(TableStyle(style_commands))
             story.append(table)
-
         club_name = settings.get_pdf_club_name()
         logo_path = settings.get_pdf_logo_path()
         footer_text = settings.get_pdf_footer_text()
-
         def _header_footer(canvas, doc):
             canvas.saveState()
             styles = getSampleStyleSheet()
@@ -316,14 +426,16 @@ class Exporter:
             p_left.wrapOn(canvas, doc.width * 0.7, doc.height)
             p_left.drawOn(canvas, doc.leftMargin, footer_y)
             right_style = ParagraphStyle(name='Right', parent=styles['Normal'], alignment=TA_RIGHT, fontSize=8)
-            p_right = Paragraph("EquiShift © 2025<br/>by Raiko347", right_style)
+            p_right = Paragraph("EquiShift © 2025<br/>by ByteWolf0x15B", right_style)
             p_right.wrapOn(canvas, doc.width * 0.25, doc.height)
             p_right.drawOn(canvas, doc.leftMargin + doc.width * 0.75, footer_y)
             canvas.restoreState()
-        
         try:
             doc.build(story, onFirstPage=_header_footer, onLaterPages=_header_footer)
             return True
+        except PermissionError:
+            Exporter._handle_permission_error(file_path)
+            return False
         except Exception as e:
             print(f"Fehler beim Nachbereitungs-Export: {e}")
             return False

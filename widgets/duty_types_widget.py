@@ -92,43 +92,38 @@ class DutyTypesWidget(QWidget):
         for row_idx, duty_type in enumerate(duty_types):
             id_item = QTableWidgetItem(str(duty_type["duty_type_id"]))
             id_item.setData(Qt.UserRole, duty_type["is_protected"])
-            
-            # KORREKTUR: Diese Zeile wieder aktivieren
             self.duty_types_table.setItem(row_idx, 0, id_item)
 
-            self.duty_types_table.setItem(
-                row_idx, 1, QTableWidgetItem(duty_type["name"])
-            )
+            # NEU: Schloss-Symbol für geschützte Dienste
+            name_text = duty_type["name"]
+            if duty_type["is_protected"]:
+                name_text = "🔒 " + name_text
+            
+            self.duty_types_table.setItem(row_idx, 1, QTableWidgetItem(name_text))
+            
             self.duty_types_table.setItem(
                 row_idx, 2, QTableWidgetItem(duty_type["description"])
             )
         self.update_button_states()
 
     def update_button_states(self):
-        """Aktiviert/Deaktiviert die Bearbeiten/Löschen-Buttons basierend auf der Auswahl."""
-        # Prüfen, ob überhaupt eine Zeile ausgewählt ist
         has_selection = bool(self.duty_types_table.selectedItems())
-        
         if not has_selection:
             self.edit_button.setEnabled(False)
             self.delete_button.setEnabled(False)
             return
 
-        # Wenn eine Auswahl vorhanden ist, hole die Daten
         selected_row = self.duty_types_table.currentRow()
         id_item = self.duty_types_table.item(selected_row, 0)
-
-        # Sicherheitsprüfung: Wenn die Zelle aus irgendeinem Grund leer ist
-        if not id_item:
-            self.edit_button.setEnabled(False)
-            self.delete_button.setEnabled(False)
-            return
+        if not id_item: return
             
         is_protected = id_item.data(Qt.UserRole)
         
-        # Aktiviere die Buttons nur, wenn eine Auswahl da ist UND der Dienst nicht geschützt ist
-        self.edit_button.setEnabled(has_selection and not is_protected)
-        self.delete_button.setEnabled(has_selection and not is_protected)
+        # NEU: Bearbeiten ist IMMER erlaubt (auch bei geschützten)
+        self.edit_button.setEnabled(True)
+        
+        # Löschen ist nur bei ungeschützten erlaubt
+        self.delete_button.setEnabled(not is_protected)
 
     def add_duty_type(self):
         """Öffnet den Dialog zum Anlegen eines neuen Dienst-Typs."""

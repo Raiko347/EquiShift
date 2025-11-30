@@ -106,7 +106,7 @@ def main():
                 db_path = setup_dialog.db_path
                 settings.set_db_path(db_path)
                 
-                # --- NEU: Demodaten generieren, falls gewünscht ---
+                # NEU: Demodaten generieren, falls gewünscht ---
                 if setup_dialog.create_demo:
                     if setup_demo_data:
                         try:

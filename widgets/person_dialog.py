@@ -2,8 +2,7 @@
 """
 widgets/person_dialog.py
 
-Dialog zum Anlegen und Bearbeiten eines Mitglieds, inklusive der Verwaltung
-von Kompetenzen, Teamleiter-Status und Dienst-Einschränkungen.
+Dialog zum Anlegen und Bearbeiten eines Mitglieds.
 """
 from PyQt5.QtWidgets import (
     QDialog,
@@ -21,7 +20,7 @@ from PyQt5.QtWidgets import (
     QTableWidgetItem,
     QHeaderView,
     QWidget,
-    QHBoxLayout, # Wichtig für das Nebeneinander
+    QHBoxLayout,
 )
 from PyQt5.QtCore import QDate, pyqtSignal, Qt
 
@@ -35,8 +34,8 @@ class PersonDialog(QDialog):
         super().__init__(parent)
         self.db_manager = db_manager
         self.person_id = person_id
-        self.duty_type_checkboxes = []  # Für Einschränkungen
-        self.competency_widgets = {}  # Für Kompetenzen
+        self.duty_type_checkboxes = []
+        self.competency_widgets = {}
 
         title = (
             "Mitglied bearbeiten"
@@ -44,8 +43,6 @@ class PersonDialog(QDialog):
             else "Neues Mitglied anlegen"
         )
         self.setWindowTitle(title)
-        
-        # NEU: Breiter machen, damit beides nebeneinander passt
         self.setMinimumWidth(900) 
 
         self._init_ui()
@@ -53,10 +50,9 @@ class PersonDialog(QDialog):
         if self.person_id:
             self._load_person_data()
 
-        self._update_all_states()  # Initialer Logik-Check
+        self._update_all_states()
 
     def _init_ui(self):
-        """Erstellt die komplette Benutzeroberfläche des Dialogs."""
         main_layout = QVBoxLayout(self)
 
         # --- Formular für persönliche Daten ---
@@ -78,9 +74,8 @@ class PersonDialog(QDialog):
         self.entry_date_input = QDateEdit(calendarPopup=True)
         self.entry_date_input.setDisplayFormat("dd.MM.yyyy")
         self.notes_input = QTextEdit()
-        self.notes_input.setFixedHeight(60) # Etwas flacher
+        self.notes_input.setFixedHeight(60)
 
-        # Zweispaltiges Layout für die persönlichen Daten (optional, spart Platz nach unten)
         row_1 = QHBoxLayout()
         row_1.addWidget(self.first_name_input); row_1.addWidget(self.last_name_input)
         form_layout.addRow("Vorname / Nachname*:", row_1)
@@ -89,7 +84,8 @@ class PersonDialog(QDialog):
         
         row_2 = QHBoxLayout()
         row_2.addWidget(self.birth_date_input); row_2.addWidget(self.status_input)
-        form_layout.addRow("Geburtstag / Status:", row_2)
+        # KORREKTUR 1: Sternchen hinzugefügt
+        form_layout.addRow("Geburtstag / Status*:", row_2)
         
         form_layout.addRow("Straße:", self.street_input)
         
@@ -109,10 +105,10 @@ class PersonDialog(QDialog):
         personal_data_groupbox.setLayout(form_layout)
         main_layout.addWidget(personal_data_groupbox)
 
-        # --- NEU: Container für Kompetenzen & Einschränkungen (Nebeneinander) ---
+        # --- Container für Kompetenzen & Einschränkungen ---
         skills_layout = QHBoxLayout()
 
-        # --- Box für Kompetenzen (Links) ---
+        # --- Box für Kompetenzen ---
         competency_groupbox = QGroupBox("Kompetenzen & Teamleiter-Status")
         competency_layout = QVBoxLayout()
         self.competency_table = QTableWidget()
@@ -127,19 +123,18 @@ class PersonDialog(QDialog):
         competency_layout.addWidget(self.competency_table)
         competency_groupbox.setLayout(competency_layout)
         
-        skills_layout.addWidget(competency_groupbox, 2) # Stretch-Faktor 2 (breiter)
+        skills_layout.addWidget(competency_groupbox, 2)
 
-        # --- Box für Einschränkungen (Rechts) ---
+        # --- Box für Einschränkungen ---
         restrictions_groupbox = QGroupBox("Dienst-Einschränkungen (max. 3)")
         self.restrictions_layout = QVBoxLayout()
         restrictions_groupbox.setLayout(self.restrictions_layout)
         
-        skills_layout.addWidget(restrictions_groupbox, 1) # Stretch-Faktor 1 (schmäler)
+        skills_layout.addWidget(restrictions_groupbox, 1)
 
         main_layout.addLayout(skills_layout)
-        # -----------------------------------------------------------------------
 
-        self._populate_duties()  # Füllt Kompetenzen und Einschränkungen
+        self._populate_duties()
 
         # --- Buttons ---
         button_box = QDialogButtonBox(
@@ -152,7 +147,6 @@ class PersonDialog(QDialog):
         main_layout.addWidget(button_box)
 
     def _populate_duties(self):
-        """Füllt die Kompetenztabelle und die Einschränkungs-Checkboxes."""
         duty_types = self.db_manager.get_all_duty_types()
         self.competency_table.setRowCount(len(duty_types))
 
@@ -160,7 +154,6 @@ class PersonDialog(QDialog):
             duty_id = duty_type["duty_type_id"]
             duty_name = duty_type["name"]
 
-            # 1. Kompetenztabelle füllen
             name_item = QTableWidgetItem(duty_name)
             name_item.setFlags(name_item.flags() & ~Qt.ItemIsEditable)
             self.competency_table.setItem(idx, 0, name_item)
@@ -168,7 +161,6 @@ class PersonDialog(QDialog):
             cb_competent = QCheckBox()
             cb_teamleader = QCheckBox()
 
-            # Checkboxen in zentrierten Layouts platzieren
             cell_widget_competent = QWidget()
             layout_c = QHBoxLayout(cell_widget_competent)
             layout_c.addWidget(cb_competent)
@@ -185,21 +177,17 @@ class PersonDialog(QDialog):
 
             self.competency_widgets[duty_id] = (cb_competent, cb_teamleader)
 
-            # 2. Einschränkungs-Checkboxes füllen
             cb_restriction = QCheckBox(duty_name)
             cb_restriction.setProperty("duty_type_id", duty_id)
             self.restrictions_layout.addWidget(cb_restriction)
             self.duty_type_checkboxes.append(cb_restriction)
 
-            # 3. Signale verbinden, um die Logik zu triggern
             cb_competent.stateChanged.connect(self._update_all_states)
             cb_restriction.stateChanged.connect(self._update_all_states)
         
-        # Leeres Widget am Ende der Restrictions, damit die Checkboxen oben bleiben
         self.restrictions_layout.addStretch()
 
     def _load_person_data(self):
-        """Lädt die Daten des Mitglieds und füllt alle Formularfelder."""
         person = self.db_manager.get_person_by_id(self.person_id)
         if not person:
             QMessageBox.critical(self, "Fehler", "Mitglied nicht gefunden.")
@@ -262,10 +250,16 @@ class PersonDialog(QDialog):
                 cb_tl.setEnabled(False)
             else:
                 cb_c.setEnabled(True)
+                
+                # KORREKTUR 2: Logik für Teamleiter
+                # Wenn Kompetenz NICHT angehakt ist, muss TL auch aus sein.
+                if not cb_c.isChecked():
+                    cb_tl.setChecked(False)
+                
+                # TL ist nur aktivierbar, wenn Kompetenz da ist
                 cb_tl.setEnabled(cb_c.isChecked())
 
     def accept(self):
-        """Validiert und speichert alle Daten (persönlich, Einschränkungen, Kompetenzen)."""
         first_name = self.first_name_input.text().strip()
         last_name = self.last_name_input.text().strip()
         display_name = self.display_name_input.text().strip()

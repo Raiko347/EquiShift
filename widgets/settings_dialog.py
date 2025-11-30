@@ -55,13 +55,36 @@ class SettingsDialog(QDialog):
         self.duration_spin.setSuffix(" Stunden")
         self.duration_spin.setValue(self.settings.get_default_shift_duration())
         form_layout.addRow("Standard-Dauer für neue Schichten:", self.duration_spin)
+        # Vereins-Einstellungen ---
+        form_layout.addRow(QLabel("<b>Vereins-Regeln</b>"))
+        self.mandatory_spin = QSpinBox()
+        self.mandatory_spin.setRange(0, 500)
+        self.mandatory_spin.setSuffix(" Stunden")
+        self.mandatory_spin.setValue(self.settings.get_mandatory_hours())
+        form_layout.addRow("Pflichtstunden pro Jahr:", self.mandatory_spin)
 
-        # --- PDF-Einstellungen ---
+        # Altersgrenzen
+        self.age_bar_spin = QSpinBox()
+        self.age_bar_spin.setRange(14, 99)
+        self.age_bar_spin.setValue(self.settings.get_min_age_bar())
+        form_layout.addRow("Mindestalter 'Bar':", self.age_bar_spin)
+
+        self.age_kasse_spin = QSpinBox()
+        self.age_kasse_spin.setRange(14, 99)
+        self.age_kasse_spin.setValue(self.settings.get_min_age_kasse())
+        form_layout.addRow("Mindestalter 'Kasse':", self.age_kasse_spin)        
+
+        # PDF-Einstellungen
         form_layout.addRow(QLabel("<b>PDF Export</b>"))
 
         self.club_name_input = QLineEdit()
         self.club_name_input.setText(self.settings.get_pdf_club_name())
         form_layout.addRow("Vereinsname:", self.club_name_input)
+
+        self.feedback_email_input = QLineEdit()
+        self.feedback_email_input.setText(self.settings.get_feedback_email())
+        self.feedback_email_input.setPlaceholderText("z.B. orga@meinverein.de")
+        form_layout.addRow("E-Mail für Rückmeldungen:", self.feedback_email_input)
 
         logo_layout = QHBoxLayout()
         self.logo_path_input = QLineEdit()
@@ -114,7 +137,11 @@ class SettingsDialog(QDialog):
             font_changed = True
 
         self.settings.set_default_shift_duration(self.duration_spin.value())
+        self.settings.set_mandatory_hours(self.mandatory_spin.value())
+        self.settings.set_min_age_bar(self.age_bar_spin.value())
+        self.settings.set_min_age_kasse(self.age_kasse_spin.value())
         self.settings.set_pdf_club_name(self.club_name_input.text())
+        self.settings.set_feedback_email(self.feedback_email_input.text())
         self.settings.set_pdf_logo_path(self.logo_path_input.text())
         self.settings.set_pdf_footer_text(self.footer_text_input.toPlainText())
 
